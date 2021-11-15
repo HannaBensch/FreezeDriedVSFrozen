@@ -1,0 +1,322 @@
+---
+title: "Freeze-dried vs Frozen samples UniFraq beta diversity"
+author: "hanna.bensch@lnu.se"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  pdf_document:
+    fig_caption: yes  
+    toc: yes
+---
+  
+  
+```{r setup, echo=F,  message=FALSE}
+knitr::opts_chunk$set(echo=TRUE, fig.path='figures/FD/UniFraq', cache = TRUE)
+ggplot2::theme_set(ggplot2::theme_bw())
+```
+
+```{r libraries, include = FALSE}
+suppressPackageStartupMessages(library(readr))
+suppressPackageStartupMessages(library(dplyr, warn.conflicts = FALSE))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(purrr))
+suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(kfigr))
+suppressPackageStartupMessages(library(knitr))
+suppressPackageStartupMessages(library(vegan))
+suppressPackageStartupMessages(library(forcats))
+suppressPackageStartupMessages(library(ggpubr))
+suppressPackageStartupMessages(library(lme4))
+suppressPackageStartupMessages(library(DT))
+suppressPackageStartupMessages(library(ggdendro))
+suppressPackageStartupMessages(library(harrypotter))
+suppressPackageStartupMessages(library(ape))
+suppressPackageStartupMessages(library(phyloseq))
+suppressPackageStartupMessages(library(microbiome))
+```
+
+```{r constants}
+```
+
+```{r read-data, echo= FALSE, message=FALSE}
+asvs <- read_tsv("data/asv_summed.tsv", col_types = 'ccidd')
+metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
+  .default = col_character(),
+  SampleDate = col_date(format = ""),
+  SampleOrder = col_number()
+)) %>% suppressWarnings()
+taxonomy <- read_tsv("data/taxonomy.tsv", col_types =  cols(
+  asv = col_character(),
+  kingdom = col_character(),
+  phylum = col_character(),
+  class = col_character(),
+  order = col_character(),
+  family = col_character(),
+  genus = col_character(),
+  species = col_character()
+))
+
+# Rename Sample number
+metadata  <- metadata %>% dplyr::rename(OldSampleNumber = SampleNumber, SampleNumber = NewSampleNumber )
+
+# filter out the 40 samples freeze dried and their frozen comparison
+asvs <- asvs %>% inner_join(metadata %>% dplyr::select(sample), by ="sample") 
+
+asvs <- asvs %>% left_join(metadata %>% select(sample,  Asample))
+
+# get palette
+pal <- hp(n = 8, house = "ronweasley2")
+pal <- pal[c(6,4)]
+
+#get the phylotree
+spptree <- read.tree("data/sepp/SeppAll_placement.tog.tre") 
+
+```
+
+## Introducion
+
+I here calculate weighted an unweighted unifrac beta diversity based on the .tre file from the SPP analysis using the GG taxonomy. 
+
+I calculated these with ordinate() on a phyloseq object because I failed to figure out how to do it with vegan and tidyverse, following examples such as https://www.nicholas-ollberding.com/post/introduction-to-the-statistical-analysis-of-microbiome-data-in-r/ & https://mibwurrepo.github.io/Microbial-bioinformatics-introductory-course-Material-2018/beta-diversity-metrics.html#phylogenetic-beta-diversity-metrics
+
+
+
+```{r make-phyloseq object, include=FALSE}
+str(asvs)
+asvsp <- asvs %>% select(asv, count, Asample) %>% pivot_wider(names_from = 'Asample', values_from='count', values_fil= 0) %>%
+  tibble::column_to_rownames('asv') %>% as.matrix()
+str(taxonomy)
+taxonomyp <- taxonomy %>% tibble::column_to_rownames('asv') %>% as.matrix()
+metadatap <- metadata %>% tibble::column_to_rownames('Asample')
+
+OTU = otu_table(asvsp, taxa_are_rows = TRUE)
+TAX = tax_table(taxonomyp)
+samples = sample_data(metadatap)
+  
+pseq <- phyloseq(OTU, TAX, samples) # make pseq object
+pseq <- merge_phyloseq(pseq, spptree) # merge with tree
+
+print(pseq)
+pseq@phy_tree # tree is rooted
+
+# delete objects not needed
+rm(taxonomyp, metadatap,asvsp, samples, TAX, OTU)
+
+```
+
+
+```{r Figure S2, echo=FALSE, fig.width=12, fig.height = 5, fig.cap = '**NMDS weighted & unweigted unifrac un-rarefied data. Point colour represent the sample treatment and line beteween replicates.**', message=FALSE, warning=FALSE}
+##
+ps1.rel <- microbiome::transform(pseq, "compositional") # w unifrac consider the abundances of different taxa.
+wUF.ordu = ordinate(ps1.rel, method="NMDS", distance="unifrac", weighted=TRUE)
+uwUF.ordu = ordinate(pseq, method="NMDS", distance="unifrac", weighted=FALSE)
+
+wUF.ordu$stress 
+uwUF.ordu$stress 
+
+data.scores <- as.data.frame(scores(wUF.ordu))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
+data.scores$Asample <- rownames(data.scores)  # create a column of site names, from the rownames of data.scores
+data.scores <- data.scores %>% left_join(metadata %>% dplyr::select(Asample, Treatment))
+
+NMDSw<- data.scores %>%
+  left_join(metadata %>% select(Asample, SampleNumber, Plate_No, GroupID)) %>%
+  ggplot(aes(x=NMDS1,y=NMDS2, color= Treatment, group = SampleNumber)) +
+  geom_point( size = 4) +  
+  geom_line( color="black", aes(alpha = 1)) +
+   scale_colour_manual( values = pal)+
+    theme(axis.title=element_text(size=18,face="bold"),
+    axis.text = element_text(size=14),
+    panel.background=element_rect(fill='white', colour='black'),
+    strip.background=element_rect(fill='white', colour='white'),
+    panel.grid = element_blank(),
+    legend.key=element_blank(),
+    legend.position = "right",
+    legend.title = element_blank(),
+    legend.text = element_text( size=12, face="bold"))+
+  guides(alpha =FALSE, fill =FALSE) +
+  ggtitle("A) Weighted UniFrac")
+
+
+data.scores <- as.data.frame(scores(uwUF.ordu))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
+data.scores$Asample <- rownames(data.scores)  # create a column of site names, from the rownames of data.scores
+data.scores <- data.scores %>% left_join(metadata %>% dplyr::select(Asample, Treatment))
+
+NMDSuw<- data.scores %>%
+  left_join(metadata %>% select(Asample, SampleNumber, Plate_No, GroupID)) %>%
+  ggplot(aes(x=NMDS1,y=NMDS2, color= Treatment, group = SampleNumber)) +
+  geom_point( size = 4) +  
+  geom_line( color="black", aes(alpha = 1)) +
+   scale_colour_manual( values = pal)+
+    theme(axis.title=element_text(size=18,face="bold"),
+    axis.text = element_text(size=14),
+    panel.background=element_rect(fill='white', colour='black'),
+    strip.background=element_rect(fill='white', colour='white'),
+    panel.grid = element_blank(),
+    legend.key=element_blank(),
+    legend.position = "right",
+    legend.title = element_blank(),
+    legend.text = element_text( size=12, face="bold"))+
+  guides(alpha =FALSE, fill =FALSE) +
+  ggtitle("B) Unweighted UniFrac")
+
+
+allsamples_WuW <- ggarrange(NMDSw, NMDSuw, common.legend = TRUE)
+allsamples_WuW 
+```
+
+
+```{r Figure 3, echo=FALSE, fig.width=12, fig.height = 5, fig.cap = '**NMDS weighted & unweigted unifrac un-rarefied data and sample 4 excluded. Point colour represent the sample treatment and line beteween replicates.**', message=FALSE, warning=FALSE}
+##
+wUF.ordu = ordinate(subset_samples(ps1.rel, SampleNumber != "4"), method="NMDS", distance="unifrac", weighted=TRUE) # Weighted Unifrac consider the abundances of different taxa.
+uwUF.ordu = ordinate(subset_samples(pseq, SampleNumber != "4"), method="NMDS", distance="unifrac", weighted=FALSE)
+
+wUF.ordu$stress 
+uwUF.ordu$stress
+
+data.scores <- as.data.frame(scores(wUF.ordu))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
+data.scores$Asample <- rownames(data.scores)  # create a column of site names, from the rownames of data.scores
+data.scores <- data.scores %>% left_join(metadata %>% dplyr::select(Asample, Treatment))
+
+NMDSw<- data.scores %>%
+  left_join(metadata %>% select(Asample, SampleNumber, Plate_No, GroupID)) %>%
+  ggplot(aes(x=NMDS1,y=NMDS2, color= Treatment, group = SampleNumber)) +
+  geom_point( size = 4) +  
+  geom_line( color="black", aes(alpha = 1)) +
+   scale_colour_manual( values = pal)+
+    theme(axis.title=element_text(size=18,face="bold"),
+    axis.text = element_text(size=14),
+    panel.background=element_rect(fill='white', colour='black'),
+    strip.background=element_rect(fill='white', colour='white'),
+    panel.grid = element_blank(),
+    legend.key=element_blank(),
+    legend.position = "right",
+    legend.title = element_blank(),
+    legend.text = element_text( size=12, face="bold"))+
+  guides(alpha =FALSE, fill =FALSE) +
+  ggtitle("A) Weighted UniFrac")
+
+
+data.scores <- as.data.frame(scores(uwUF.ordu))  #Using the scores function from vegan to extract the site scores and convert to a data.frame
+data.scores$Asample <- rownames(data.scores)  # create a column of site names, from the rownames of data.scores
+data.scores <- data.scores %>% left_join(metadata %>% dplyr::select(Asample, Treatment))
+
+NMDSuw<- data.scores %>%
+  left_join(metadata %>% select(Asample, SampleNumber, Plate_No, GroupID)) %>%
+  ggplot(aes(x=NMDS1,y=NMDS2, color= Treatment, group = SampleNumber)) +
+  geom_point( size = 4) +  
+  geom_line( color="black", aes(alpha = 1)) +
+   scale_colour_manual( values = pal)+
+    theme(axis.title=element_text(size=18,face="bold"),
+    axis.text = element_text(size=14),
+    panel.background=element_rect(fill='white', colour='black'),
+    strip.background=element_rect(fill='white', colour='white'),
+    panel.grid = element_blank(),
+    legend.key=element_blank(),
+    legend.position = "right",
+    legend.title = element_blank(),
+    legend.text = element_text( size=12, face="bold"))+
+  guides(alpha =FALSE, fill =FALSE) +
+  ggtitle("B) Unweighted UniFrac")
+
+WuW_fourExcluded <-  ggarrange(NMDSw, NMDSuw, common.legend = TRUE)
+WuW_fourExcluded
+```
+
+
+
+
+## PERMANOVAS
+
+test permanova on un-rarefied and all samples (including sample 4), first only to test Plate Number and second to nest within plate number and test SampleNumber vs treatment: 
+
+```{r distances, include=FALSE}
+set.seed(711)
+#distances
+uni_dist <- phyloseq::distance(pseq, "unifrac")
+wuni_dist <- phyloseq::distance(pseq, "wunifrac")
+wuni_dist2 <- phyloseq::distance(subset_samples(pseq, SampleNumber != "4"), "wunifrac")
+uni_dist2 <- phyloseq::distance(subset_samples(pseq, SampleNumber != "4"), "unifrac")
+```
+
+
+
+*On weighted unifrac distance*
+```{r permanova_asv wun}
+# test weighted
+perm <- how(nperm = 9999)
+permanova <- adonis2(wuni_dist ~ Plate_No, data = as(sample_data(pseq), "data.frame"), permutations = perm,  by = "margin")
+print(as.data.frame(permanova)) # Plate No NS
+betadisp <- betadisper(wuni_dist, as(sample_data(pseq), "data.frame")$Plate_No, type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
+"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
+anova(betadisp)
+
+setBlocks(perm) <- with(pseq@sam_data, Plate_No)
+permanova <- adonis2(wuni_dist ~ Treatment + SampleNumber,data = as(sample_data(pseq), "data.frame"), permutations = perm,  by = "margin")
+print(as.data.frame(permanova)) # Treatment significant but just small proportion
+```
+
+
+*On weighted unifrac distance excluding sample 4*
+```{r permanova_asv wun2, warning=FALSE}
+# test weighted
+perm <- how(nperm = 9999)
+permanova <- adonis2(wuni_dist2 ~ Plate_No, data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
+print(as.data.frame(permanova)) # Plate No NS
+betadisp <- betadisper(wuni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Plate_No, 
+                                     type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
+"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
+anova(betadisp)
+
+#no strata argument
+permanova <- adonis2(wuni_dist2 ~ Treatment + SampleNumber,data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
+print(as.data.frame(permanova)) # Treatment significant but just small proportion
+betadisp <- betadisper(wuni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Treatment, 
+                                     type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
+"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
+anova(betadisp)
+
+#plate number as strata
+setBlocks(perm) <- with(as.tibble(pseq@sam_data) %>% filter( SampleNumber != "4"), Plate_No)
+permanova <- adonis2(wuni_dist2 ~ Treatment + SampleNumber,data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
+print(as.data.frame(permanova)) # Treatment significant but just small proportion
+```
+
+*On un-weighted unifrac distance*
+```{r permanova_asv uwun}
+# test unweighted
+perm <- how(nperm = 9999)
+permanova <- adonis2(uni_dist ~ Plate_No, data = as(sample_data(pseq), "data.frame"), permutations = perm,  by = "margin")
+print(as.data.frame(permanova)) # Plate No almost significant
+
+setBlocks(perm) <- with(pseq@sam_data, Plate_No)
+permanova <- adonis2(uni_dist ~ Treatment + SampleNumber,data = as(sample_data(pseq), "data.frame"), permutations = perm,  by = "margin")
+print(as.data.frame(permanova)) # Treatment significant but just small proportion
+```
+
+
+*On un-weighted unifrac distance excluding sample 4*
+```{r permanova_asv uwun2,warning=FALSE}
+# test weighted
+perm <- how(nperm = 9999)
+permanova <- adonis2(uni_dist2 ~ Plate_No, data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
+print(as.data.frame(permanova)) # Plate significant
+
+betadisp <- betadisper(uni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Plate_No, 
+                                     type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
+"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
+anova(betadisp)
+
+permanova <- adonis2(uni_dist2 ~ Treatment + SampleNumber,data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
+print(as.data.frame(permanova)) # Treatment significant but just small proportion
+betadisp <- betadisper(uni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Treatment, 
+                                     type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
+"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
+anova(betadisp)
+
+# with plate number as strata argument
+setBlocks(perm) <- with(as.tibble(pseq@sam_data) %>% filter( SampleNumber != "4"), Plate_No)
+permanova <- adonis2(uni_dist2 ~ Treatment + SampleNumber,data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
+print(as.data.frame(permanova)) # Treatment significant but just small proportion
+
+```
