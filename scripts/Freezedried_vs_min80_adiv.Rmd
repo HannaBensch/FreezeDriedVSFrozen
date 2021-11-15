@@ -1,0 +1,345 @@
+---
+title: "Explore freeze-dried samples Alpha diversity"
+author: "hanna.bensch@lnu.se"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  pdf_document:
+    fig_caption: yes  
+    toc: yes
+---
+
+
+```{r setup, echo=F,  message=FALSE}
+knitr::opts_chunk$set(echo=TRUE, fig.path='figures/FD/', cache = TRUE)
+ggplot2::theme_set(ggplot2::theme_bw())
+```
+
+```{r libraries, include = FALSE}
+suppressPackageStartupMessages(library(readr))
+suppressPackageStartupMessages(library(dplyr, warn.conflicts = FALSE))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(purrr))
+suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(kfigr))
+suppressPackageStartupMessages(library(knitr))
+suppressPackageStartupMessages(library(vegan))
+suppressPackageStartupMessages(library(forcats))
+suppressPackageStartupMessages(library(ggpubr))
+suppressPackageStartupMessages(library(lme4))
+suppressPackageStartupMessages(library(DT))
+suppressPackageStartupMessages(library(harrypotter))
+suppressPackageStartupMessages(library(phyloseq))
+suppressPackageStartupMessages(library(ape))
+suppressPackageStartupMessages(library(microbiome))
+suppressPackageStartupMessages(library(picante))
+```
+
+```{r constants}
+```
+
+```{r read-data, message=FALSE, include=FALSE}
+asvs <- read_tsv("data/asv_summed.tsv", col_types = 'ccidd')
+metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
+  .default = col_character(),
+  SampleDate = col_date(format = ""),
+  SampleOrder = col_number()
+)) %>% suppressWarnings() %>%
+  left_join( # get the nb reads 
+    asvs %>% select(sample, count) %>% 
+    group_by(sample) %>% summarise(NbReads = sum(count), .groups = 'drop'))
+taxonomy <- read_tsv("data/taxonomy.tsv", col_types =  cols(
+  asv = col_character(),
+  kingdom = col_character(),
+  phylum = col_character(),
+  class = col_character(),
+  order = col_character(),
+  family = col_character(),
+  genus = col_character(),
+  species = col_character()
+)) 
+
+# filter out the 40 samples freeze dried and their frozen comparison
+asvs <- asvs %>% inner_join(metadata %>% dplyr::select(sample), by ="sample") 
+
+
+# get palette
+pal <- hp(n = 8, house = "ronweasley2")
+pal <- pal[c(6,4)]
+
+#get the phylotree
+spptree <- read.tree("data/sepp/SeppAll_placement.tog.tre") 
+```
+
+# Introduction
+
+In this study, we want to investigate if Freeze Dried samples give the same data as samples stored at -80 freezer prior library preparation. Here, we ask if the alpha diversity differ between the two sample types.
+
+# Methods
+We took 20 replicate samples from our fecal samples stored in -80 and freeze dried them at the Kalahari Research Centre for 48 h. Freeze Dried samples were then transported and stored at room temperature until 16S library preparation of fecal samples and randomized on three sequencing plates together with their replicates. On all three plates, 4 negative controls were used to remove contaminant reads from samples before further analysis.
+
+
+# Results
+
+
+```{r alpha-div.vegan,fig.cap='**Boxplots Number of reads per samples,**Colour by Sample type.', fig.height=4,  fig.width=8, message=FALSE, warning=FALSE, echo=FALSE }
+metadata %>%
+  ggplot(aes(x = Treatment, y = NbReads, fill = Treatment)) +
+  geom_boxplot() +
+  scale_fill_manual( values = pal) +
+    theme(axis.text.x = element_text(face = "bold", size =15),
+          axis.text.y = element_text( size =15),
+          axis.title.y = element_text(face = "bold", size =15),
+        panel.background=element_rect(fill = 'white', colour='black'),
+        strip.background=element_rect(fill = 'white', colour='white'),
+        strip.text = element_text(face = "bold", size=15),
+        panel.grid = element_blank(),
+        legend.position = "none") +
+  xlab("")
+```
+
+
+
+```{r minmaxreads check, eval=FALSE, include=FALSE}
+#metadata %>% group_by(Treatment) %>% summarise( meanReads = mean(NbReads), minRich =min(NbReads), maxRich= max(NbReads))
+#metadata  %>% summarise( meanReads = mean(NbReads), minRich =min(NbReads), maxRich= max(NbReads))
+
+paired_t_reads <- lmer(NbReads ~ Treatment  + (1|Plate_No) +(1|SampleNumber), data = metadata)
+summary(paired_t_reads)
+paired_t_reads2 <- lmer(NbReads ~ 1  + (1|Plate_No) +(1|SampleNumber), data = metadata)
+summary(paired_t_reads2)
+anova(paired_t_reads, paired_t_reads2)
+# No difference between number of reads/sample between treatment types
+```
+
+
+
+
+```{r make-phyloseq-object, include = FALSE}
+metadata <- metadata %>% mutate(Asample = paste(AnimalID, sample, sep="_"))
+str(asvs)
+asvsp <- asvs %>% left_join(metadata %>% select(sample, Asample)) %>%
+  select(asv, count, Asample) %>%
+  pivot_wider(names_from = 'Asample', values_from='count', values_fil= 0) %>%
+  tibble::column_to_rownames('asv') %>% as.matrix()
+
+taxonomyp <- taxonomy %>% tibble::column_to_rownames('asv') %>% as.matrix()
+metadatap <- metadata %>% tibble::column_to_rownames('Asample')
+
+OTU = otu_table(asvsp, taxa_are_rows = TRUE)
+TAX = tax_table(taxonomyp)
+samples = sample_data(metadatap)
+  
+pseq <- phyloseq(OTU, TAX, samples) # make pseq object
+pseq <- merge_phyloseq(pseq, spptree) # merge with tree
+
+print(pseq)
+pseq@phy_tree # tree is rooted
+
+# rarefy to smallest lib size
+set.seed(3000)  
+pseq.rar <- rarefy_even_depth(pseq, sample.size = 5493)
+print(pseq.rar)
+
+
+# calculate alpha diversities
+hmp.div <- alpha(pseq.rar, index = "all")
+hmp.divUR <- alpha(pseq, index = "all")
+
+# Add the rownames as a new colum for easy integration later.
+hmp.div <- hmp.div %>% rownames_to_column("Asample")
+hmp.divUR <- hmp.divUR %>% rownames_to_column("Asample")
+
+pseq.rar.asvtab <- as.data.frame(pseq.rar@otu_table)
+pseq.asvtab <- as.data.frame(pseq@otu_table)
+
+pseq.rar.tree <- pseq.rar@phy_tree
+pseq.tree <- pseq@phy_tree
+
+# calculate pd
+df.pd <- pd(t(pseq.rar.asvtab), pseq.rar.tree,include.root=T)
+df.pdU <- pd(t(pseq.asvtab), pseq.tree,include.root=T)
+
+hmp.div <- hmp.div %>% left_join(df.pd %>% rownames_to_column("Asample"))
+hmp.divUR <- hmp.divUR %>% left_join(df.pdU %>% rownames_to_column("Asample"))
+
+hmp.div <- hmp.div %>% left_join(metadata)
+hmp.divUR <- hmp.divUR %>% left_join(metadata)
+
+```
+
+
+
+```{r Figure 1, fig.cap='**Alpha diversites calculated with phyloseq+micobiome package, A) ASV richness, B) Shannon index C) Faiths PD. Black line between paired sampes.**', fig.height=5,  fig.width=12, message=FALSE, warning=FALSE, echo=FALSE}
+
+ggarrange(
+hmp.div  %>%
+          ggplot(aes(x =Treatment, col= Treatment, y=observed,  group = SampleNumber)) +
+  geom_point(aes(size = 3)) + 
+  geom_line( color="black",  aes(alpha = 1)) +
+  scale_colour_manual( values = pal) +
+      theme(axis.text.x = element_text( size =15, angle= 45, hjust =1),
+          axis.text.y = element_text( size =15),
+          axis.title.y = element_text(face = "bold", size =20),
+        panel.background=element_rect(fill = 'white', colour='black'),
+        strip.background=element_rect(fill = 'white', colour='white'),
+        strip.text = element_text(face = "bold", size=15),
+        panel.grid = element_blank() ,
+        legend.position = "none"
+        ) +
+  ylim(0, 300) +
+  labs(y= "ASV Richness", x =""),
+hmp.div  %>%
+          ggplot(aes(x =Treatment, col= Treatment, y=diversity_shannon,  group = SampleNumber)) +
+  geom_point(aes(size = 3)) + 
+  geom_line( color="black", aes(alpha = 1)) +
+  scale_colour_manual( values = pal) +
+      theme(axis.text.x = element_text( size =15, angle= 45, hjust =1),
+          axis.text.y = element_text( size =15),
+          axis.title.y = element_text(face = "bold", size =20),
+        panel.background=element_rect(fill = 'white', colour='black'),
+        strip.background=element_rect(fill = 'white', colour='white'),
+        strip.text = element_text(face = "bold", size=15),
+        panel.grid = element_blank(),
+        legend.position = "none"
+        ) +
+  ylim(0,5) +
+  labs(y= "Shannon index", x =""), 
+hmp.div  %>%
+          ggplot(aes(x =Treatment, col= Treatment, y=PD,  group = SampleNumber)) +
+  geom_point(aes(size = 3)) + 
+  geom_line( color="black", aes(alpha = 1)) +
+  scale_colour_manual( values = pal) +
+      theme(axis.text.x = element_text(size =15, angle= 45, hjust =1),
+          axis.text.y = element_text( size =15),
+          axis.title.y = element_text(face = "bold", size =20),
+        panel.background=element_rect(fill = 'white', colour='black'),
+        strip.background=element_rect(fill = 'white', colour='white'),
+        strip.text = element_text(face = "bold", size=15),
+        panel.grid = element_blank(),
+        legend.position = "none"
+        ) +
+  ylim(0,40) +
+  labs(y= "Faith's PD", x =""), 
+labels = c("A", "B", "C"), nrow= 1, ncol =3) 
+
+```
+
+```{r minmaxalpha, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+hmp.div %>% group_by(Treatment) %>% summarise( meanRich = mean(observed), minRich =min(observed), maxRich= max(observed),
+                                               meanShan = mean(diversity_shannon), minShan =min(diversity_shannon), maxShan = max(diversity_shannon),
+                                               meanPD = mean(PD), minPD =min(PD), maxPD = max(PD))
+
+```
+
+
+```{r lmer, eval=FALSE, include=FALSE}
+
+#ASV richnees
+paired_t_Nasv <- lmer(observed ~ Treatment  + (1|Plate_No) +(1|SampleNumber), data = hmp.div)
+summary(paired_t_Nasv)
+paired_t_Nasv2 <- lmer(observed ~ 1  + (1|Plate_No) +(1|SampleNumber), data = hmp.div)
+summary(paired_t_Nasv2)
+anova(paired_t_Nasv, paired_t_Nasv2)
+
+#Shannon
+paired_t_shann <- lmer(diversity_shannon ~ Treatment + (1|Plate_No)  + (1|SampleNumber), data =hmp.div)
+summary(paired_t_shann)
+paired_t_shann2 <- lmer(diversity_shannon ~ 1 + (1|Plate_No)  + (1|SampleNumber), data = hmp.div)
+summary(paired_t_shann2)
+anova(paired_t_shann, paired_t_shann2)
+
+# PD
+paired_t_pd <- lmer(PD ~ Treatment  + (1|Plate_No) +(1|SampleNumber), data = hmp.div )
+summary(paired_t_pd)
+paired_t_pd2 <- lmer(PD ~ 1  + (1|Plate_No) +(1|SampleNumber), data = hmp.div )
+summary(paired_t_pd2)
+anova(paired_t_pd, paired_t_pd2)
+
+#No effect treatment
+```
+
+
+
+
+```{r microbiomeline2, eval=FALSE, fig.cap='**.Alpha diversites calculated with phyloseq+micobiome package on un-rarefied counts, fig.width=12, message=FALSE, warning=FALSE, A) ASV richness, B) Shannon index C) Faiths PD. Black line between paired sampes.**', fig.height=6, include=FALSE}
+
+ggarrange(
+hmp.divUR  %>%
+          ggplot(aes(x =Treatment, col= Treatment, y=observed,  group = SampleNumber)) +
+  geom_point(aes(size = 3)) + 
+  geom_line( color="black",  aes(alpha = 1)) +
+  scale_colour_manual( values = pal) +
+      theme(axis.text.x = element_text( size =15, angle= 45, hjust =1),
+          axis.text.y = element_text( size =15),
+          axis.title.y = element_text(face = "bold", size =20),
+        panel.background=element_rect(fill = 'white', colour='black'),
+        strip.background=element_rect(fill = 'white', colour='white'),
+        strip.text = element_text(face = "bold", size=15),
+        panel.grid = element_blank() ,
+        legend.position = "none"
+        ) +
+  ylim(0, 300) +
+  labs(y= "ASV Richness", x =""),
+hmp.divUR  %>%
+          ggplot(aes(x =Treatment, col= Treatment, y=diversity_shannon,  group = SampleNumber)) +
+  geom_point(aes(size = 3)) + 
+  geom_line( color="black", aes(alpha = 1)) +
+  scale_colour_manual( values = pal) +
+      theme(axis.text.x = element_text( size =15, angle= 45, hjust =1),
+          axis.text.y = element_text( size =15),
+          axis.title.y = element_text(face = "bold", size =20),
+        panel.background=element_rect(fill = 'white', colour='black'),
+        strip.background=element_rect(fill = 'white', colour='white'),
+        strip.text = element_text(face = "bold", size=15),
+        panel.grid = element_blank(),
+        legend.position = "none"
+        ) +
+  ylim(0,5) +
+  labs(y= "Shannon index", x =""), 
+hmp.divUR  %>%
+          ggplot(aes(x =Treatment, col= Treatment, y=PD,  group = SampleNumber)) +
+  geom_point(aes(size = 3)) + 
+  geom_line( color="black", aes(alpha = 1)) +
+  scale_colour_manual( values = pal) +
+      theme(axis.text.x = element_text(size =15, angle= 45, hjust =1),
+          axis.text.y = element_text( size =15),
+          axis.title.y = element_text(face = "bold", size =20),
+        panel.background=element_rect(fill = 'white', colour='black'),
+        strip.background=element_rect(fill = 'white', colour='white'),
+        strip.text = element_text(face = "bold", size=15),
+        panel.grid = element_blank(),
+        legend.position = "none"
+        ) +
+  ylim(0,40) +
+  labs(y= "Faith's PD", x =""), 
+labels = c("A", "B", "C"), nrow= 1, ncol =3)
+
+```
+
+
+
+
+
+
+```{r Figure S4, echo=FALSE, fig.cap='**Rarefaction curves.**', fig.height=6, fig.width=10, message=FALSE, warning=FALSE}
+
+asv_table <- asvs %>% dplyr::select(sample, asv, count) %>%
+  pivot_wider(names_from = 'sample', values_from = 'count', values_fill = 0) %>%
+  inner_join(taxonomy, by = 'asv') 
+
+names(asv_table)[1] <- "OTU"
+
+asv_table <- asv_table %>% dplyr::rename(Kingdom = kingdom, Phylum = phylum, Class = class, Order = order,  Family = family, Genus = genus, Species = species)
+
+metadata <- metadata %>% relocate(sample) # reorder to get this first
+amp_data <- ampvis2::amp_load(asv_table, metadata = metadata)
+p1 <- ampvis2::amp_rarecurve(amp_data, stepsize = 1000, color_by = 'Treatment')
+p1 + ylab("Number of ASVS") +scale_colour_manual( values = pal) 
+
+# It looks ok! 
+```
+
+             
+                                  
