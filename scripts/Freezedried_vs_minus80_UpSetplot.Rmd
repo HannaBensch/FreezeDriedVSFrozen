@@ -1,0 +1,97 @@
+---
+title: "Shared ASVs freeze-dried vs frozen samples"
+author: "hanna.bensch@lnu.se"
+date: "`r format(Sys.time(), '%Y-%m-%d')`"
+output:
+  pdf_document:
+    fig_caption: yes  
+    toc: yes
+---
+
+
+```{r setup, echo=F,  message=FALSE}
+knitr::opts_chunk$set(echo=TRUE, fig.path='figures/FD/', cache = TRUE)
+ggplot2::theme_set(ggplot2::theme_bw())
+```
+
+```{r libraries, include = FALSE}
+suppressPackageStartupMessages(library(readr))
+suppressPackageStartupMessages(library(dplyr, warn.conflicts = FALSE))
+suppressPackageStartupMessages(library(tidyr))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(purrr))
+suppressPackageStartupMessages(library(stringr))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(kfigr))
+suppressPackageStartupMessages(library(knitr))
+suppressPackageStartupMessages(library(vegan))
+suppressPackageStartupMessages(library(forcats))
+suppressPackageStartupMessages(library(venneuler))
+suppressPackageStartupMessages(library(UpSetR))
+suppressPackageStartupMessages(library(ggpubr))
+```
+
+
+```{r constants}
+```
+
+```{r read-data, echo= FALSE, message=FALSE}
+asvs <- read_tsv("data/asv_summed.tsv", col_types = 'ccidd')
+metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
+  .default = col_character(),
+  SampleDate = col_date(format = ""),
+  SampleOrder = col_number()
+)) %>% suppressWarnings() 
+taxonomy <- read_tsv("data/taxonomy.tsv", col_types =  cols(
+  asv = col_character(),
+  kingdom = col_character(),
+  phylum = col_character(),
+  class = col_character(),
+  order = col_character(),
+  family = col_character(),
+  genus = col_character(),
+  species = col_character()
+))
+
+# filter out the 40 samples freeze dried and their frozen comparison
+asvs <- asvs %>% inner_join(metadata %>% dplyr::select(sample), by ="sample") 
+
+```
+
+
+# Introduction
+
+In this study, we want to investigate if Freeze Dried samples give the same data as samples stored at -80 freezer prior library preparation. We ask if relative abundance differ between the two sample types.
+
+# Methods
+We took 20 replicate samples from our fecal samples stored in -80 and freeze dried them at the Kalahari Research Centre for 48 h. Freeze Dried samples were then transported and stored at room temperature until 16S library preparation of fecal samples and randomized on three sequencing plates together with their replicates. On all three plates, 4 negative controls were used to remove contaminant reads from samples before further analysis.
+
+
+
+# Results
+
+
+
+```{r Figure S3, fig.cap='**UpSet plot all asvs as either Freeze-dried or frozen sample.** Grey bar represent ASVs only found within a single sample.', fig.height = 5, fig.width = 5, message = FALSE, warning = FALSE, echo = FALSE}
+Ups <- asvs %>% select(sample, asv) %>% left_join(metadata %>% select(sample, Treatment)) %>%
+  mutate(N = 1 ) %>% select (-sample) %>% unique() %>% pivot_wider(names_from = 'Treatment', values_from = 'N', values_fill = 0) %>%
+  left_join(asvs %>% select(sample, asv) %>% group_by(asv) %>% summarise(N = n()))  %>%
+  data.frame()
+
+upset(Ups,  
+      nsets = 2,
+      order.by = "freq",
+       point.size = 3.5, line.size = 1.5,
+      mainbar.y.label = "ASV Intersections", sets.x.label = "ASVs per Treatment", text.scale = c(1.3, 1, 1, 1, 1.3, 1.3),
+      query.legend = "bottom",
+      queries = list(
+  list(
+    query = elements,
+    params = list("N", 0, 1),
+    color = "grey", 
+    active = T,
+    query.name = "ASV only in one sample"
+  )
+  )
+)
+```
