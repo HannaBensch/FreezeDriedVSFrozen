@@ -10,7 +10,7 @@ R - Scripts for Freeze-dried vs -80 Frozen samples manuscript
 
    A) Freezedried_vs_min80_Unifraq_betadiversity.Rmd 
 
-   B)
+   B) Freezefried_vs_min80_hellinger&CLR.Rmd
    
    
 4) **Relative abundances:**
