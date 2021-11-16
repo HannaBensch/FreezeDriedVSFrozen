@@ -60,6 +60,9 @@ taxonomy <- read_tsv("data/taxonomy.tsv", col_types =  cols(
   species = col_character()
 )) 
 
+# make a character of the sample number
+metadata <- metadata %>% mutate(Asample = paste("A", sample, sep= "_"))
+
 # filter out the 40 samples freeze dried and their frozen comparison
 asvs <- asvs %>% inner_join(metadata %>% dplyr::select(sample), by ="sample") 
 
@@ -117,7 +120,6 @@ anova(paired_t_reads, paired_t_reads2)
 
 
 ```{r make-phyloseq-object, include = FALSE}
-metadata <- metadata %>% mutate(Asample = paste(AnimalID, sample, sep="_"))
 str(asvs)
 asvsp <- asvs %>% left_join(metadata %>% select(sample, Asample)) %>%
   select(asv, count, Asample) %>%

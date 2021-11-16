@@ -63,6 +63,8 @@ metadata  <- metadata %>% dplyr::rename(OldSampleNumber = SampleNumber, SampleNu
 # filter out the 40 samples freeze dried and their frozen comparison
 asvs <- asvs %>% inner_join(metadata %>% dplyr::select(sample), by ="sample") 
 
+# make a character of the sample number
+metadata <- metadata %>% mutate(Asample = paste("A", sample, sep= "_"))
 asvs <- asvs %>% left_join(metadata %>% select(sample,  Asample))
 
 # get palette
@@ -166,7 +168,7 @@ allsamples_WuW
 ```
 
 
-```{r Figure 3, echo=FALSE, fig.width=12, fig.height = 5, fig.cap = '**NMDS weighted & unweigted unifrac un-rarefied data and sample 4 excluded. Point colour represent the sample treatment and line beteween replicates.**', message=FALSE, warning=FALSE}
+```{r Figure 3, echo=FALSE, fig.cap='**NMDS weighted & unweigted unifrac un-rarefied data and sample 4 excluded. Point colour represent the sample treatment and line beteween replicates.**', fig.height=5, fig.width=12, message=FALSE, warning=FALSE}
 ##
 wUF.ordu = ordinate(subset_samples(ps1.rel, SampleNumber != "4"), method="NMDS", distance="unifrac", weighted=TRUE) # Weighted Unifrac consider the abundances of different taxa.
 uwUF.ordu = ordinate(subset_samples(pseq, SampleNumber != "4"), method="NMDS", distance="unifrac", weighted=FALSE)
@@ -258,7 +260,7 @@ print(as.data.frame(permanova)) # Treatment significant but just small proportio
 
 
 *On weighted unifrac distance excluding sample 4*
-```{r permanova_asv wun2, warning=FALSE}
+```{r permanova_asv wun2, warning=FALSE, include=FALSE}
 # test weighted
 perm <- how(nperm = 9999)
 permanova <- adonis2(wuni_dist2 ~ Plate_No, data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
@@ -283,7 +285,7 @@ print(as.data.frame(permanova)) # Treatment significant but just small proportio
 ```
 
 *On un-weighted unifrac distance*
-```{r permanova_asv uwun}
+```{r permanova_asv uwun, include=FALSE}
 # test unweighted
 perm <- how(nperm = 9999)
 permanova <- adonis2(uni_dist ~ Plate_No, data = as(sample_data(pseq), "data.frame"), permutations = perm,  by = "margin")
@@ -296,7 +298,7 @@ print(as.data.frame(permanova)) # Treatment significant but just small proportio
 
 
 *On un-weighted unifrac distance excluding sample 4*
-```{r permanova_asv uwun2,warning=FALSE}
+```{r permanova_asv uwun2, eval=FALSE, warning=FALSE, include=FALSE}
 # test weighted
 perm <- how(nperm = 9999)
 permanova <- adonis2(uni_dist2 ~ Plate_No, data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
