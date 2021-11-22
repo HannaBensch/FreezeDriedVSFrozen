@@ -1,5 +1,8 @@
 # FreezeDriedVSFrozen
-R - Scripts for Freeze-dried vs -80 Frozen samples manuscript
+R - Scripts for Freeze-dried vs -80 Frozen samples manuscript analysis and visualizations.
+
+
+Following scripts uses asv_summed.tsv which contain counts of ASVs per sample after removing sequences within negtaive control samples:
 
 1) **Alpha diversity:**
 
