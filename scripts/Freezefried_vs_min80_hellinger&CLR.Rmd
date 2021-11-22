@@ -39,13 +39,13 @@ suppressPackageStartupMessages(library(ape))
 ```
 
 ```{r read-data, echo= FALSE, message=FALSE}
-asvs <- read_tsv("data/asv_summed.tsv", col_types = 'ccidd')
+asvs <- read_tsv("data/asv_summed_FreezedriedVsFrozen.tsv", col_types = 'ccid')
 metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
   .default = col_character(),
   SampleDate = col_date(format = ""),
   SampleOrder = col_number()
 )) %>% suppressWarnings()
-taxonomy <- read_tsv("data/taxonomy.tsv", col_types =  cols(
+taxonomy <- read_tsv("data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
   asv = col_character(),
   kingdom = col_character(),
   phylum = col_character(),
@@ -60,10 +60,6 @@ taxonomy <- read_tsv("data/taxonomy.tsv", col_types =  cols(
 metadata  <- metadata %>% dplyr::rename(OldSampleNumber = SampleNumber, SampleNumber = NewSampleNumber )
 # make a character of the sample number
 metadata <- metadata %>% mutate(Asample = paste("A", sample, sep= "_"))
-
-# filter out the 40 samples freeze dried and their frozen comparison
-asvs <- asvs %>% inner_join(metadata %>% dplyr::select(sample), by ="sample") 
-
 
 asvs <- asvs %>% left_join(metadata %>% select(sample,  Asample))
 

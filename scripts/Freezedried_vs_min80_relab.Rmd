@@ -28,7 +28,6 @@ suppressPackageStartupMessages(library(forcats))
 suppressPackageStartupMessages(library(ggpubr))
 suppressPackageStartupMessages(library(lme4))
 suppressPackageStartupMessages(library(DT))
-suppressPackageStartupMessages(library(harrypotter))
 suppressPackageStartupMessages(library(wesanderson))
 ```
 
@@ -36,13 +35,13 @@ suppressPackageStartupMessages(library(wesanderson))
 ```
 
 ```{r read-data, message=FALSE, include=FALSE, warnings=FALSE}
-asvs <- read_tsv("data/asv_summed.tsv", col_types = 'ccidd')
+asvs <- read_tsv("data/asv_summed_FreezedriedVsFrozen.tsv", col_types = 'ccid')
 metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
   .default = col_character(),
   SampleDate = col_date(format = ""),
   SampleOrder = col_number()
 )) %>% suppressWarnings()
-taxonomy <- read_tsv("data/taxonomy.tsv", col_types =  cols(
+taxonomy <- read_tsv("data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
   asv = col_character(),
   kingdom = col_character(),
   phylum = col_character(),
@@ -52,9 +51,6 @@ taxonomy <- read_tsv("data/taxonomy.tsv", col_types =  cols(
   genus = col_character(),
   species = col_character()
 )) 
-
-# keep ASVs counts part of Freeze-dried frozen comparison
-asvs <- asvs %>% inner_join(metadata %>% dplyr::select(sample), by ="sample") %>% select(-hellinger)
 
 
 ## how many unclassified

@@ -39,14 +39,14 @@ suppressPackageStartupMessages(library(microbiome))
 ```{r constants}
 ```
 
-```{r read-data, echo= FALSE, message=FALSE}
-asvs <- read_tsv("data/asv_summed.tsv", col_types = 'ccidd')
+```{r read-data, echo= FALSE}
+asvs <- read_tsv("data/asv_summed_FreezedriedVsFrozen.tsv", col_types = 'ccid')
 metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
   .default = col_character(),
   SampleDate = col_date(format = ""),
   SampleOrder = col_number()
 )) %>% suppressWarnings()
-taxonomy <- read_tsv("data/taxonomy.tsv", col_types =  cols(
+taxonomy <- read_tsv("data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
   asv = col_character(),
   kingdom = col_character(),
   phylum = col_character(),
@@ -108,8 +108,7 @@ rm(taxonomyp, metadatap,asvsp, samples, TAX, OTU)
 ```
 
 
-```{r Figure S2, echo=FALSE, fig.width=12, fig.height = 5, fig.cap = '**NMDS weighted & unweigted unifrac un-rarefied data. Point colour represent the sample treatment and line beteween replicates.**', message=FALSE, warning=FALSE}
-##
+```{r Figure S2, echo=FALSE, fig.cap='**NMDS weighted & unweigted unifrac un-rarefied data. Point colour represent the sample treatment and line beteween replicates.**', fig.height=5, fig.width=12, message=FALSE, warning=FALSE}
 ps1.rel <- microbiome::transform(pseq, "compositional") # w unifrac consider the abundances of different taxa.
 wUF.ordu = ordinate(ps1.rel, method="NMDS", distance="unifrac", weighted=TRUE)
 uwUF.ordu = ordinate(pseq, method="NMDS", distance="unifrac", weighted=FALSE)
@@ -122,7 +121,7 @@ data.scores$Asample <- rownames(data.scores)  # create a column of site names, f
 data.scores <- data.scores %>% left_join(metadata %>% dplyr::select(Asample, Treatment))
 
 NMDSw<- data.scores %>%
-  left_join(metadata %>% select(Asample, SampleNumber, Plate_No, GroupID)) %>%
+  left_join(metadata %>% select(Asample, SampleNumber, Plate_No)) %>%
   ggplot(aes(x=NMDS1,y=NMDS2, color= Treatment, group = SampleNumber)) +
   geom_point( size = 4) +  
   geom_line( color="black", aes(alpha = 1)) +
@@ -145,7 +144,7 @@ data.scores$Asample <- rownames(data.scores)  # create a column of site names, f
 data.scores <- data.scores %>% left_join(metadata %>% dplyr::select(Asample, Treatment))
 
 NMDSuw<- data.scores %>%
-  left_join(metadata %>% select(Asample, SampleNumber, Plate_No, GroupID)) %>%
+  left_join(metadata %>% select(Asample, SampleNumber, Plate_No)) %>%
   ggplot(aes(x=NMDS1,y=NMDS2, color= Treatment, group = SampleNumber)) +
   geom_point( size = 4) +  
   geom_line( color="black", aes(alpha = 1)) +
@@ -181,7 +180,7 @@ data.scores$Asample <- rownames(data.scores)  # create a column of site names, f
 data.scores <- data.scores %>% left_join(metadata %>% dplyr::select(Asample, Treatment))
 
 NMDSw<- data.scores %>%
-  left_join(metadata %>% select(Asample, SampleNumber, Plate_No, GroupID)) %>%
+  left_join(metadata %>% select(Asample, SampleNumber, Plate_No)) %>%
   ggplot(aes(x=NMDS1,y=NMDS2, color= Treatment, group = SampleNumber)) +
   geom_point( size = 4) +  
   geom_line( color="black", aes(alpha = 1)) +
@@ -204,7 +203,7 @@ data.scores$Asample <- rownames(data.scores)  # create a column of site names, f
 data.scores <- data.scores %>% left_join(metadata %>% dplyr::select(Asample, Treatment))
 
 NMDSuw<- data.scores %>%
-  left_join(metadata %>% select(Asample, SampleNumber, Plate_No, GroupID)) %>%
+  left_join(metadata %>% select(Asample, SampleNumber, Plate_No)) %>%
   ggplot(aes(x=NMDS1,y=NMDS2, color= Treatment, group = SampleNumber)) +
   geom_point( size = 4) +  
   geom_line( color="black", aes(alpha = 1)) +

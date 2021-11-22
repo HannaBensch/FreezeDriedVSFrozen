@@ -40,7 +40,7 @@ suppressPackageStartupMessages(library(picante))
 ```
 
 ```{r read-data, message=FALSE, include=FALSE}
-asvs <- read_tsv("data/asv_summed.tsv", col_types = 'ccidd')
+asvs <- read_tsv("data/asv_summed_FreezedriedVsFrozen.tsv", col_types = 'ccid')
 metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
   .default = col_character(),
   SampleDate = col_date(format = ""),
@@ -49,7 +49,7 @@ metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
   left_join( # get the nb reads 
     asvs %>% select(sample, count) %>% 
     group_by(sample) %>% summarise(NbReads = sum(count), .groups = 'drop'))
-taxonomy <- read_tsv("data/taxonomy.tsv", col_types =  cols(
+taxonomy <- read_tsv("data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
   asv = col_character(),
   kingdom = col_character(),
   phylum = col_character(),
@@ -62,10 +62,6 @@ taxonomy <- read_tsv("data/taxonomy.tsv", col_types =  cols(
 
 # make a character of the sample number
 metadata <- metadata %>% mutate(Asample = paste("A", sample, sep= "_"))
-
-# filter out the 40 samples freeze dried and their frozen comparison
-asvs <- asvs %>% inner_join(metadata %>% dplyr::select(sample), by ="sample") 
-
 
 # get palette
 pal <- hp(n = 8, house = "ronweasley2")
