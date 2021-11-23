@@ -3,7 +3,7 @@ R & Rmd Scripts for 16S Freeze-dried vs -80 Frozen samples analysis and visualiz
 
 1. **Creating asv-table**
    
-   *create_single_asv_table_FreezedriedVsFrozen.R sum*
+   *create_single_asv_table_FreezedriedVsFrozen.R*
 
 Sum counts of reads within samples sequenced twice and filter sequences within negative controls creating the `asv_summed_FreezedriedVsFrozen.tsv`
 
