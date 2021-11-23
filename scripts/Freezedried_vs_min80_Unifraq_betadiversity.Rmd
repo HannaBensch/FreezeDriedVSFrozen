@@ -10,7 +10,7 @@ output:
   
   
 ```{r setup, echo=F,  message=FALSE}
-knitr::opts_chunk$set(echo=TRUE, fig.path='figures/FD/UniFraq', cache = TRUE)
+knitr::opts_chunk$set(echo=TRUE, fig.path='figures/FD/UniFraq/', cache = FALSE)
 ggplot2::theme_set(ggplot2::theme_bw())
 ```
 
@@ -39,7 +39,7 @@ suppressPackageStartupMessages(library(microbiome))
 ```{r constants}
 ```
 
-```{r read-data, echo= FALSE}
+```{r read-data, include=FALSE, meassages=FALSE}
 asvs <- read_tsv("data/asv_summed_FreezedriedVsFrozen.tsv", col_types = 'ccid')
 metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
   .default = col_character(),
@@ -60,9 +60,6 @@ taxonomy <- read_tsv("data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
 # Rename Sample number
 metadata  <- metadata %>% dplyr::rename(OldSampleNumber = SampleNumber, SampleNumber = NewSampleNumber )
 
-# filter out the 40 samples freeze dried and their frozen comparison
-asvs <- asvs %>% inner_join(metadata %>% dplyr::select(sample), by ="sample") 
-
 # make a character of the sample number
 metadata <- metadata %>% mutate(Asample = paste("A", sample, sep= "_"))
 asvs <- asvs %>% left_join(metadata %>% select(sample,  Asample))
@@ -72,7 +69,7 @@ pal <- hp(n = 8, house = "ronweasley2")
 pal <- pal[c(6,4)]
 
 #get the phylotree
-spptree <- read.tree("data/sepp/SeppAll_placement.tog.tre") 
+spptree <- read.tree("data/sepp/FDvsFrozenSepptree.tog.tree") 
 
 ```
 
@@ -108,7 +105,7 @@ rm(taxonomyp, metadatap,asvsp, samples, TAX, OTU)
 ```
 
 
-```{r Figure S2, echo=FALSE, fig.cap='**NMDS weighted & unweigted unifrac un-rarefied data. Point colour represent the sample treatment and line beteween replicates.**', fig.height=5, fig.width=12, message=FALSE, warning=FALSE}
+```{r NMDS1, message=FALSE, warning=FALSE, include=FALSE}
 ps1.rel <- microbiome::transform(pseq, "compositional") # w unifrac consider the abundances of different taxa.
 wUF.ordu = ordinate(ps1.rel, method="NMDS", distance="unifrac", weighted=TRUE)
 uwUF.ordu = ordinate(pseq, method="NMDS", distance="unifrac", weighted=FALSE)
@@ -161,13 +158,17 @@ NMDSuw<- data.scores %>%
   guides(alpha =FALSE, fill =FALSE) +
   ggtitle("B) Unweighted UniFrac")
 
+```
+
+
+```{r Figure S2, echo=FALSE, fig.cap='**NMDS weighted & unweigted unifrac un-rarefied data. Point colour represent the sample treatment and line beteween replicates.**', fig.height=5, fig.width=12, message=FALSE, warning=FALSE}
 
 allsamples_WuW <- ggarrange(NMDSw, NMDSuw, common.legend = TRUE)
 allsamples_WuW 
 ```
 
 
-```{r Figure 3, echo=FALSE, fig.cap='**NMDS weighted & unweigted unifrac un-rarefied data and sample 4 excluded. Point colour represent the sample treatment and line beteween replicates.**', fig.height=5, fig.width=12, message=FALSE, warning=FALSE}
+```{r NMDS2, message=FALSE, warning=FALSE, include=FALSE}
 ##
 wUF.ordu = ordinate(subset_samples(ps1.rel, SampleNumber != "4"), method="NMDS", distance="unifrac", weighted=TRUE) # Weighted Unifrac consider the abundances of different taxa.
 uwUF.ordu = ordinate(subset_samples(pseq, SampleNumber != "4"), method="NMDS", distance="unifrac", weighted=FALSE)
@@ -219,6 +220,9 @@ NMDSuw<- data.scores %>%
     legend.text = element_text( size=12, face="bold"))+
   guides(alpha =FALSE, fill =FALSE) +
   ggtitle("B) Unweighted UniFrac")
+```
+
+```{r Figure 3, echo=FALSE, fig.cap='**NMDS weighted & unweigted unifrac un-rarefied data and sample 4 excluded. Point colour represent the sample treatment and line beteween replicates.**', fig.height=5, fig.width=12, message=FALSE, warning=FALSE}
 
 WuW_fourExcluded <-  ggarrange(NMDSw, NMDSuw, common.legend = TRUE)
 WuW_fourExcluded
@@ -243,7 +247,7 @@ uni_dist2 <- phyloseq::distance(subset_samples(pseq, SampleNumber != "4"), "unif
 
 
 *On weighted unifrac distance*
-```{r permanova_asv wun}
+```{r permanova_asv wun, eval=FALSE, include=FALSE}
 # test weighted
 perm <- how(nperm = 9999)
 permanova <- adonis2(wuni_dist ~ Plate_No, data = as(sample_data(pseq), "data.frame"), permutations = perm,  by = "margin")
@@ -319,5 +323,4 @@ anova(betadisp)
 setBlocks(perm) <- with(as.tibble(pseq@sam_data) %>% filter( SampleNumber != "4"), Plate_No)
 permanova <- adonis2(uni_dist2 ~ Treatment + SampleNumber,data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
 print(as.data.frame(permanova)) # Treatment significant but just small proportion
-
 ```

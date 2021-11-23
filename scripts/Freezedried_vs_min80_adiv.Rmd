@@ -68,7 +68,7 @@ pal <- hp(n = 8, house = "ronweasley2")
 pal <- pal[c(6,4)]
 
 #get the phylotree
-spptree <- read.tree("data/sepp/SeppAll_placement.tog.tre") 
+spptree <- read.tree("data/sepp/FDvsFrozenSepptree.tog.tree") 
 ```
 
 # Introduction
