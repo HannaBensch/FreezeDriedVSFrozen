@@ -250,8 +250,10 @@ uni_dist2 <- phyloseq::distance(subset_samples(pseq, SampleNumber != "4"), "unif
 ```{r permanova_asv wun, eval=FALSE, include=FALSE}
 # test weighted
 perm <- how(nperm = 9999)
+set.seed(3000)  
 permanova <- adonis2(wuni_dist ~ Plate_No, data = as(sample_data(pseq), "data.frame"), permutations = perm,  by = "margin")
 print(as.data.frame(permanova)) # Plate No NS
+set.seed(3000)  
 betadisp <- betadisper(wuni_dist, as(sample_data(pseq), "data.frame")$Plate_No, type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
 "boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
 anova(betadisp)
@@ -265,23 +267,28 @@ print(as.data.frame(permanova)) # Treatment significant but just small proportio
 *On weighted unifrac distance excluding sample 4*
 ```{r permanova_asv wun2, warning=FALSE, include=FALSE}
 # test weighted
+set.seed(3000)  
 perm <- how(nperm = 9999)
 permanova <- adonis2(wuni_dist2 ~ Plate_No, data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
-print(as.data.frame(permanova)) # Plate No NS
+print(as.data.frame(permanova))
+set.seed(3000)  
 betadisp <- betadisper(wuni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Plate_No, 
                                      type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
 "boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
 anova(betadisp)
 
 #no strata argument
+set.seed(3000)  
 permanova <- adonis2(wuni_dist2 ~ Treatment + SampleNumber,data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
 print(as.data.frame(permanova)) # Treatment significant but just small proportion
+set.seed(3000)  
 betadisp <- betadisper(wuni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Treatment, 
                                      type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
 "boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
 anova(betadisp)
 
 #plate number as strata
+set.seed(3000)  
 setBlocks(perm) <- with(as.tibble(pseq@sam_data) %>% filter( SampleNumber != "4"), Plate_No)
 permanova <- adonis2(wuni_dist2 ~ Treatment + SampleNumber,data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
 print(as.data.frame(permanova)) # Treatment significant but just small proportion
@@ -304,22 +311,26 @@ print(as.data.frame(permanova)) # Treatment significant but just small proportio
 ```{r permanova_asv uwun2, eval=FALSE, warning=FALSE, include=FALSE}
 # test weighted
 perm <- how(nperm = 9999)
+set.seed(3000)  
 permanova <- adonis2(uni_dist2 ~ Plate_No, data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
 print(as.data.frame(permanova)) # Plate significant
-
+set.seed(3000)  
 betadisp <- betadisper(uni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Plate_No, 
                                      type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
+#"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
 anova(betadisp)
 
+set.seed(3000)
 permanova <- adonis2(uni_dist2 ~ Treatment + SampleNumber,data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
 print(as.data.frame(permanova)) # Treatment significant but just small proportion
+set.seed(3000)
 betadisp <- betadisper(uni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Treatment, 
                                      type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
+#"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
 anova(betadisp)
 
 # with plate number as strata argument
+set.seed(3000)
 setBlocks(perm) <- with(as.tibble(pseq@sam_data) %>% filter( SampleNumber != "4"), Plate_No)
 permanova <- adonis2(uni_dist2 ~ Treatment + SampleNumber,data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
 print(as.data.frame(permanova)) # Treatment significant but just small proportion

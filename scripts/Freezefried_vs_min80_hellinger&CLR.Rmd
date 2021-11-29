@@ -70,7 +70,7 @@ pal <- pal[c(6,4)]
 ```
 
 
-# Introducrtion
+# Introduction
 
 I here use Hellinger transformed counts which puts more weight to common ASVs) and clr-transformed approach *for more information on clr, see Gloor et al. 2017 and Gloor's github tutorial* ( https://github.com/ggloor/CoDa_microbiome_tutorial/wiki/Part-1:-Exploratory-Compositional-PCA-biplot ) to explore beta diversity of freeze-dried and frozen samples.
 
@@ -146,24 +146,25 @@ hell <- asvs %>% select(asv, sample, count) %>% arrange(sample) %>%
 
 # adonis2
 perm <- how(nperm = 9999)
+set.seed(1000)
 permanova <- adonis2(hell ~ Plate_No, data = metadf, permutations = perm,  by = "margin")
 print(as.data.frame(permanova))
 
+set.seed(1000)
 betadisp <- betadisper(hell, metadf$Plate_No, 
                                      type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-#"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
 anova(betadisp)
 
+set.seed(1000)
 permanova <- adonis2(hell ~ Treatment + SampleNumber, data = metadf, permutations = perm,  by = "margin")
 print(as.data.frame(permanova))
-betadisp <- betadisper(hell, metadf$Plate_No, 
-                                     type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-#"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
-anova(betadisp)
 
+# with plate number as strata
+set.seed(1000)
 setBlocks(perm) <- with(metadf, Plate_No)
 permanova <- adonis2(hell ~ Treatment + SampleNumber, data = metadf, permutations = perm,  by = "margin")
 print(as.data.frame(permanova))
+
 ```
 
 
@@ -252,25 +253,29 @@ clrdist<-dist(clr) #Aitchison/Euclidian distance
 metadf <- metadata %>% tibble::column_to_rownames('Asample')
 
 set.seed(1000)
-
 perm <- how(nperm = 9999)
 permanova <- adonis2(clrdist ~ Plate_No, data = metadf, permutations = perm,  by = "margin")
 print(as.data.frame(permanova))
 
+
+set.seed(1000)
 betadisp <- betadisper(clrdist, metadf$Plate_No, type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
 #"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
 anova(betadisp)
 
+set.seed(1000)
 permanova <- adonis2(clrdist ~ Treatment + SampleNumber, data = metadf, permutations = perm,  by = "margin")
 print(as.data.frame(permanova))
 
+
+set.seed(1000)
 # with plate no as strata arg
 setBlocks(perm) <- with(metadf, Plate_No)
 permanova <- adonis2(clrdist ~ Treatment + SampleNumber, data = metadf, permutations = perm,  by = "margin")
 print(as.data.frame(permanova))
 
+set.seed(1000)
 betadisp <- betadisper(clrdist, metadf$Treatment, type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-#"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
 anova(betadisp)
 
 ```
