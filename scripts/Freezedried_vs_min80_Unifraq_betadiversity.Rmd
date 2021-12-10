@@ -77,7 +77,7 @@ spptree <- read.tree("data/sepp/FDvsFrozenSepptree.tog.tree")
 
 I here calculate weighted an unweighted unifrac beta diversity based on the .tre file from the SPP analysis using the GG taxonomy. 
 
-I calculated these with ordinate() on a phyloseq object because I failed to figure out how to do it with vegan and tidyverse, following examples such as https://www.nicholas-ollberding.com/post/introduction-to-the-statistical-analysis-of-microbiome-data-in-r/ & https://mibwurrepo.github.io/Microbial-bioinformatics-introductory-course-Material-2018/beta-diversity-metrics.html#phylogenetic-beta-diversity-metrics
+I calculated these with ordinate() on a phyloseq object  following examples such as https://www.nicholas-ollberding.com/post/introduction-to-the-statistical-analysis-of-microbiome-data-in-r/ & https://mibwurrepo.github.io/Microbial-bioinformatics-introductory-course-Material-2018/beta-diversity-metrics.html#phylogenetic-beta-diversity-metrics
 
 
 
@@ -255,7 +255,7 @@ permanova <- adonis2(wuni_dist ~ Plate_No, data = as(sample_data(pseq), "data.fr
 print(as.data.frame(permanova)) # Plate No NS
 set.seed(3000)  
 betadisp <- betadisper(wuni_dist, as(sample_data(pseq), "data.frame")$Plate_No, type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
+"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") 
 anova(betadisp)
 
 setBlocks(perm) <- with(pseq@sam_data, Plate_No)
@@ -274,7 +274,7 @@ print(as.data.frame(permanova))
 set.seed(3000)  
 betadisp <- betadisper(wuni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Plate_No, 
                                      type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
+"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment")
 anova(betadisp)
 
 #no strata argument
@@ -284,7 +284,7 @@ print(as.data.frame(permanova)) # Treatment significant but just small proportio
 set.seed(3000)  
 betadisp <- betadisper(wuni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Treatment, 
                                      type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
+"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") 
 anova(betadisp)
 
 #plate number as strata
@@ -317,7 +317,7 @@ print(as.data.frame(permanova)) # Plate significant
 set.seed(3000)  
 betadisp <- betadisper(uni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Plate_No, 
                                      type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-#"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
+#"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment")  
 anova(betadisp)
 
 set.seed(3000)
@@ -326,7 +326,7 @@ print(as.data.frame(permanova)) # Treatment significant but just small proportio
 set.seed(3000)
 betadisp <- betadisper(uni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Treatment, 
                                      type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-#"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
+#"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") 
 anova(betadisp)
 
 # with plate number as strata argument
