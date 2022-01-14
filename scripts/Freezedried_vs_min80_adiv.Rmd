@@ -10,7 +10,7 @@ output:
 
 
 ```{r setup, echo=F,  message=FALSE}
-knitr::opts_chunk$set(echo=TRUE, fig.path='figures/FD/', cache = TRUE)
+knitr::opts_chunk$set(echo=TRUE, fig.path='figures/FD/Alpha/', cache = TRUE)
 ggplot2::theme_set(ggplot2::theme_bw())
 ```
 
@@ -40,15 +40,27 @@ suppressPackageStartupMessages(library(picante))
 ```
 
 ```{r read-data, message=FALSE, include=FALSE}
-asvs <- read_tsv("data/asv_summed_FreezedriedVsFrozen.tsv", col_types = 'ccid')
+asvs <- read_tsv("data/summed_asvs_filt_test.tsv", col_types =cols(
+  asv = col_character(),
+  sample = col_character(),
+  count = col_double(),
+  relabraw = col_double(),
+  contaminant_negfilt = col_logical(),
+  pa.pos = col_double(),
+  pa.neg = col_double(),
+  contaminant_decDef = col_logical(),
+  contaminant_prev05 = col_logical(),
+  contaminant_prev055 = col_logical(),
+  relab_negfilt = col_double(),
+  relab_decDef = col_double(),
+  relab_Dec05 = col_double(),
+  relab_dec055 = col_double() ))
+
 metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
   .default = col_character(),
   SampleDate = col_date(format = ""),
   SampleOrder = col_number()
-)) %>% suppressWarnings() %>%
-  left_join( # get the nb reads 
-    asvs %>% select(sample, count) %>% 
-    group_by(sample) %>% summarise(NbReads = sum(count), .groups = 'drop'))
+)) %>% suppressWarnings()
 taxonomy <- read_tsv("data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
   asv = col_character(),
   kingdom = col_character(),
@@ -58,10 +70,21 @@ taxonomy <- read_tsv("data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
   family = col_character(),
   genus = col_character(),
   species = col_character()
-)) 
+))
 
+head(asvs)
+# Rename Sample number
+metadata  <- metadata %>% dplyr::rename(OldSampleNumber = SampleNumber, SampleNumber = NewSampleNumber )
 # make a character of the sample number
 metadata <- metadata %>% mutate(Asample = paste("A", sample, sep= "_"))
+
+asvs <- asvs %>% inner_join(metadata %>% select(sample,  Asample)) %>%
+  filter(contaminant_prev05 == FALSE) %>% select(asv, sample, count)
+
+metadata <- metadata %>% 
+  left_join( 
+    asvs %>% select(sample, count) %>% 
+    group_by(sample) %>% summarise(NbReads = sum(count), .groups = 'drop'))
 
 # get palette
 pal <- hp(n = 8, house = "ronweasley2")
@@ -76,7 +99,7 @@ spptree <- read.tree("data/sepp/FDvsFrozenSepptree.tog.tree")
 In this study, we want to investigate if Freeze Dried samples give the same data as samples stored at -80 freezer prior library preparation. Here, we ask if the alpha diversity differ between the two sample types.
 
 # Methods
-We took 20 replicate samples from our fecal samples stored in -80 and freeze dried them at the Kalahari Research Centre for 48 h. Freeze Dried samples were then transported and stored at room temperature until 16S library preparation of fecal samples and randomized on three sequencing plates together with their replicates. On all three plates, 4 negative controls were used to remove contaminant reads from samples before further analysis.
+We took 20 replicate samples from our fecal samples stored in -80 and freeze dried them at the Kalahari Research Centre. Freeze Dried samples were then transported and stored at room temperature until 16S library preparation of fecal samples and randomized on three sequencing plates together with their replicates. On all three plates, 4 negative controls were used to remove contaminant reads from samples before further analysis.
 
 
 # Results
@@ -136,14 +159,14 @@ print(pseq)
 pseq@phy_tree # tree is rooted
 
 # rarefy to smallest lib size
-set.seed(3000)  
-pseq.rar <- rarefy_even_depth(pseq, sample.size = 5493)
-print(pseq.rar)
-
+minlib <- metadata %>% summarise(minLib = min(NbReads)) %>% pull()
+pseq.rar <- rarefy_even_depth(pseq, sample.size = minlib, rngseed= 3000) # 144 OTU removed 
+print(pseq.rar) # has 1624 taxa
+print(pseq )# has 1768 taxa
 
 # calculate alpha diversities
-hmp.div <- alpha(pseq.rar, index = "all")
-hmp.divUR <- alpha(pseq, index = "all")
+hmp.div <- alpha(pseq.rar, index = "all") # rarefied
+hmp.divUR <- alpha(pseq, index = "all") # un-rarefied
 
 # Add the rownames as a new colum for easy integration later.
 hmp.div <- hmp.div %>% rownames_to_column("Asample")
@@ -169,153 +192,289 @@ hmp.divUR <- hmp.divUR %>% left_join(metadata)
 
 
 
-```{r Figure 1, fig.cap='**Alpha diversites calculated with phyloseq+micobiome package, A) ASV richness, B) Shannon index C) Faiths PD. Black line between paired sampes.**', fig.height=5,  fig.width=12, message=FALSE, warning=FALSE, echo=FALSE}
+```{r AlphaLibSize, fig.cap='**Correlations between Alpha diversites A) ASV richness, B) Shannon index C) Faiths PD and number of reads**', fig.height=4,  fig.width=12, message=FALSE, warning=FALSE, echo=FALSE}
 
 ggarrange(
+hmp.div %>% 
+  ggplot(aes(y = observed, x= NbReads)) +
+  geom_point(aes(col = Treatment)) +
+  scale_colour_manual( values = pal) +
+  labs(y= "ASV Richness", x ="Library Size") +
+  stat_cor(),
+hmp.div %>% 
+  ggplot(aes(y = diversity_shannon, x= NbReads)) +
+  geom_point(aes(col = Treatment))+
+  scale_colour_manual( values = pal) +
+  labs(y= "Shannon index", x ="Library Size") +
+  stat_cor(),
+hmp.div %>% 
+  ggplot(aes(y = PD, x= NbReads)) +
+  geom_point(aes(col = Treatment))+
+  scale_colour_manual( values = pal) +
+  labs(y= "Faith's PD", x ="Library Size") +
+  stat_cor(),
+ncol = 3, common.legend = TRUE, legend = "top")
+
+```
+
+```{r AlphaResid, message=FALSE, warning=FALSE, include=FALSE}
+# get residuals alpha div after controlling for Library size
+# Richness
+m1 <- lm(observed ~ NbReads, data = hmp.div)
+summary(m1)
+hmp.div$residRich <- resid(m1)
+m2 <- lmer(residRich~ Treatment + (1|SampleNumber) + (1|Plate_No), data = hmp.div)
+summary(m2)
+
+# Shannon - however NbReads not sign
+m3 <- lm(diversity_shannon ~ NbReads, data = hmp.div)
+summary(m3)
+#hmp.div$residShan <- resid(m3)
+#m4 <- lmer(residShan~ Treatment + (1|SampleNumber) + (1|Plate_No), data = hmp.div)
+#summary(m4)
+
+# PD
+m5 <- lm(PD ~ NbReads, data = hmp.div)
+summary(m5)
+hmp.div$residPD <- resid(m5)
+m6 <- lmer(residPD ~ Treatment + (1|SampleNumber) + (1|Plate_No), data = hmp.div)
+summary(m6)
+```
+
+
+
+```{r Figure 1a, eval=FALSE, fig.cap='**Alpha diversites calculated with phyloseq+micobiome package, fig.width=12, message=FALSE, warning=FALSE, A) ASV richness, B) Shannon index C) Faiths PD. Black line between paired sampes.**', fig.height=5, include=FALSE}
+
+hmp.div$Treatment <- factor(hmp.div$Treatment, levels=c("Frozen", "Freeze-dried"))
+ggarrange(
 hmp.div  %>%
-          ggplot(aes(x =Treatment, col= Treatment, y=observed,  group = SampleNumber)) +
+          ggplot(aes(x =Treatment, col= Treatment, y=residRich,  group = SampleNumber)) +
   geom_point(aes(size = 3)) + 
   geom_line( color="black",  aes(alpha = 1)) +
   scale_colour_manual( values = pal) +
-      theme(axis.text.x = element_text( size =15, angle= 45, hjust =1),
+      theme(axis.text.x = element_text( size =15),
           axis.text.y = element_text( size =15),
-          axis.title.y = element_text(face = "bold", size =20),
+          axis.title.y = element_text( size =15),
         panel.background=element_rect(fill = 'white', colour='black'),
         strip.background=element_rect(fill = 'white', colour='white'),
         strip.text = element_text(face = "bold", size=15),
         panel.grid = element_blank() ,
         legend.position = "none"
         ) +
-  ylim(0, 300) +
-  labs(y= "ASV Richness", x =""),
+  ylab(expression(atop(" ", paste("Residual ASV Richness"))))+
+       xlab(""),
 hmp.div  %>%
           ggplot(aes(x =Treatment, col= Treatment, y=diversity_shannon,  group = SampleNumber)) +
   geom_point(aes(size = 3)) + 
   geom_line( color="black", aes(alpha = 1)) +
+  ylab( expression(atop(" ", paste("Shannon index"))))+
+  xlab("") +
   scale_colour_manual( values = pal) +
-      theme(axis.text.x = element_text( size =15, angle= 45, hjust =1),
+      theme(axis.text.x = element_text( size =15),
           axis.text.y = element_text( size =15),
-          axis.title.y = element_text(face = "bold", size =20),
+          axis.title.y = element_text( size =15),
         panel.background=element_rect(fill = 'white', colour='black'),
         strip.background=element_rect(fill = 'white', colour='white'),
         strip.text = element_text(face = "bold", size=15),
         panel.grid = element_blank(),
         legend.position = "none"
         ) +
-  ylim(0,5) +
-  labs(y= "Shannon index", x =""), 
+  ylim(0,5),
 hmp.div  %>%
-          ggplot(aes(x =Treatment, col= Treatment, y=PD,  group = SampleNumber)) +
+          ggplot(aes(x =Treatment, col= Treatment, y=residPD,  group = SampleNumber)) +
   geom_point(aes(size = 3)) + 
   geom_line( color="black", aes(alpha = 1)) +
   scale_colour_manual( values = pal) +
-      theme(axis.text.x = element_text(size =15, angle= 45, hjust =1),
+      theme(axis.text.x = element_text(size =15),
           axis.text.y = element_text( size =15),
-          axis.title.y = element_text(face = "bold", size =20),
+          axis.title.y = element_text( size =15),
         panel.background=element_rect(fill = 'white', colour='black'),
         strip.background=element_rect(fill = 'white', colour='white'),
         strip.text = element_text(face = "bold", size=15),
         panel.grid = element_blank(),
         legend.position = "none"
         ) +
-  ylim(0,40) +
-  labs(y= "Faith's PD", x =""), 
-labels = c("A", "B", "C"), nrow= 1, ncol =3) 
-
+  ylab(expression(atop(" ", paste("Residual Faith's PD")))) +
+  xlab(""),
+labels = c("A", "B", "C"), nrow= 1, ncol =3)
 ```
 
-```{r minmaxalpha, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+```{r minmaxalpha, echo=FALSE, message=FALSE, warning=FALSE}
 hmp.div %>% group_by(Treatment) %>% summarise( meanRich = mean(observed), minRich =min(observed), maxRich= max(observed),
                                                meanShan = mean(diversity_shannon), minShan =min(diversity_shannon), maxShan = max(diversity_shannon),
-                                               meanPD = mean(PD), minPD =min(PD), maxPD = max(PD))
+                                               meanPD = mean(PD), minPD =min(PD), maxPD = max(PD)) #%>% write.table("tables/AdivFDvsFrozen.csv")
 
 ```
 
+```{r Figure 1, fig.cap='**Alpha diversites calculated with phyloseq+micobiome package, A+D) ASV richness, B+E) Shannon index C+F) Faiths PD. Black line between paired sampes in A-C, and D-F) correlation between sample pairs. ASV richness and PD show residual value after correcting for effect of library size.**', fig.height=9,  fig.width=12, message=FALSE, warning=FALSE, echo=FALSE}
+# plot
+hmp.div$Treatment <- factor(hmp.div$Treatment, levels=c("Frozen", "Freeze-dried"))
+Fig1 <- ggarrange(
+hmp.div  %>%
+          ggplot(aes(x =Treatment, col= Treatment, y=residRich,  group = SampleNumber)) +
+  geom_point(aes(size = 3)) + 
+  geom_line( color="black",  aes(alpha = 1)) +
+  scale_colour_manual( values = pal) +
+      theme(axis.text.x = element_text( size =15),
+          axis.text.y = element_text( size =15),
+          axis.title.y = element_text( size =15),
+        panel.background=element_rect(fill = 'white', colour='black'),
+        strip.background=element_rect(fill = 'white', colour='white'),
+        strip.text = element_text(face = "bold", size=15),
+        panel.grid = element_blank() ,
+        legend.position = "none"
+        ) +
+  ylab(expression(atop(" ", paste("Residual ASV Richness"))))+
+       xlab(""),
+hmp.div  %>%
+          ggplot(aes(x =Treatment, col= Treatment, y=diversity_shannon,  group = SampleNumber)) +
+  geom_point(aes(size = 3)) + 
+  geom_line( color="black", aes(alpha = 1)) +
+  ylab( expression(atop(" ", paste("Shannon index"))))+
+  xlab("") +
+  scale_colour_manual( values = pal) +
+      theme(axis.text.x = element_text( size =15),
+          axis.text.y = element_text( size =15),
+          axis.title.y = element_text( size =15),
+        panel.background=element_rect(fill = 'white', colour='black'),
+        strip.background=element_rect(fill = 'white', colour='white'),
+        strip.text = element_text(face = "bold", size=15),
+        panel.grid = element_blank(),
+        legend.position = "none"
+        ) +
+  ylim(0,5),
+hmp.div  %>%
+          ggplot(aes(x =Treatment, col= Treatment, y=residPD,  group = SampleNumber)) +
+  geom_point(aes(size = 3)) + 
+  geom_line( color="black", aes(alpha = 1)) +
+  scale_colour_manual( values = pal) +
+      theme(axis.text.x = element_text(size =15),
+          axis.text.y = element_text( size =15),
+          axis.title.y = element_text( size =15),
+        panel.background=element_rect(fill = 'white', colour='black'),
+        strip.background=element_rect(fill = 'white', colour='white'),
+        strip.text = element_text(face = "bold", size=15),
+        panel.grid = element_blank(),
+        legend.position = "none"
+        ) +
+  ylab(expression(atop(" ", paste("Residual Faith's PD")))) +
+  xlab(""),
+hmp.div %>% select(residRich, Treatment, SampleNumber) %>% 
+  pivot_wider( names_from = Treatment, values_from = residRich) %>% 
+  ggplot(aes(y = `Freeze-dried`, x= Frozen)) +
+  geom_point() +
+  stat_cor(size = 5) + 
+  xlim(-55, 101) +
+  geom_smooth(method = "lm", se = FALSE, colour = "darkblue" ) +
+  ylab(expression(atop("Residual ASV Richness", paste("Freeze-dried")))) +
+  xlab(expression(atop("Residual ASV Richness", paste("Frozen")))) +
+  theme(axis.text = element_text( size =15),
+          axis.title = element_text(face = "bold", size =15),
+        panel.background=element_rect(fill = 'white', colour='black'),
+        strip.background=element_rect(fill = 'white', colour='white'),
+        panel.grid = element_blank() ,
+        legend.position = "none"
+        ),
+hmp.div %>% select(diversity_shannon, Treatment, SampleNumber) %>% 
+  pivot_wider( names_from = Treatment, values_from = diversity_shannon) %>% 
+  ggplot(aes(y = `Freeze-dried`, x= Frozen)) +
+  geom_point() +
+  stat_cor(size = 5)+ 
+  geom_smooth(method = "lm", se = FALSE, colour = "darkblue" ) +
+  ylab(expression(atop("Shannon index", paste("Freeze-dried")))) +
+  xlab(expression(atop("Shannon index", paste("Frozen")))) +
+  theme(axis.text = element_text( size =15),
+          axis.title = element_text(face = "bold", size =15),
+        panel.background=element_rect(fill = 'white', colour='black'),
+        strip.background=element_rect(fill = 'white', colour='white'),
+        panel.grid = element_blank() ,
+        legend.position = "none"
+        ),
+hmp.div %>% select(residPD, Treatment, SampleNumber) %>% 
+  pivot_wider( names_from = Treatment, values_from = residPD) %>% 
+  ggplot(aes(y = `Freeze-dried`, x= Frozen)) +
+  geom_point() +
+  stat_cor(size = 5) +
+  geom_smooth(method = "lm", se = FALSE, colour = "darkblue" ) +
+  ylab(expression(atop("Residual Faith's PD", paste("Freeze-dried")))) +
+  xlab(expression(atop("Residual Faith's PD", paste("Frozen")))) +
+ theme(axis.text = element_text( size =15),
+        axis.title = element_text(face = "bold", size =15),
+        panel.background=element_rect(fill = 'white', colour='black'),
+        strip.background=element_rect(fill = 'white', colour='white'),
+        panel.grid = element_blank() ,
+        legend.position = "none"
+        ) ,
+labels = c("A", "B", "C", "D", "E", "F"), nrow= 2, ncol =3, align = "v") 
+
+Fig1
+```
+
+```{r Figure SX, fig.cap='**Excluding the outier in Shannon figure E.**', fig.height=4,  fig.width=4, message=FALSE, warning=FALSE, echo=FALSE}
+# what about Shannon when excluding the outier
+hmp.div %>% select(diversity_shannon, Treatment, SampleNumber) %>% 
+  pivot_wider( names_from = Treatment, values_from = diversity_shannon) %>% 
+  arrange(Frozen) %>% filter(SampleNumber != 4) %>%
+  ggplot(aes(y = `Freeze-dried`, x= Frozen)) +
+  geom_point() +
+  stat_cor() +
+  ylab(expression(atop("Shannon index", paste("Freeze-dried")))) +
+  xlab(expression(atop("Shannon index", paste("Frozen")))) +
+  geom_smooth(method = "lm", se = FALSE, colour = "darkblue" ) +
+  theme(axis.text = element_text( size =15),
+          axis.title = element_text(face = "bold", size =15),
+        panel.background=element_rect(fill = 'white', colour='black'),
+        strip.background=element_rect(fill = 'white', colour='white'),
+        strip.text = element_text(face = "bold", size=15),
+        panel.grid = element_blank() ,
+        legend.position = "none"
+        ) 
+```
 
 ```{r lmer, eval=FALSE, include=FALSE}
-
 #ASV richnees
-paired_t_Nasv <- lmer(observed ~ Treatment  + (1|Plate_No) +(1|SampleNumber), data = hmp.div)
-summary(paired_t_Nasv)
-paired_t_Nasv2 <- lmer(observed ~ 1  + (1|Plate_No) +(1|SampleNumber), data = hmp.div)
+paired_t_Nasv <- lmer(observed ~ Treatment  + scale(NbReads) + (1|Plate_No) +(1|SampleNumber), data = hmp.div)
+summary(paired_t_Nasv)  # no effect treatment but library size
+paired_t_Nasv2 <- lmer(observed ~ 1  + scale(NbReads)+ (1|Plate_No) +(1|SampleNumber), data = hmp.div)
 summary(paired_t_Nasv2)
-anova(paired_t_Nasv, paired_t_Nasv2)
+anova(paired_t_Nasv, paired_t_Nasv2) # no significant effect treatment
 
-#Shannon
-paired_t_shann <- lmer(diversity_shannon ~ Treatment + (1|Plate_No)  + (1|SampleNumber), data =hmp.div)
-summary(paired_t_shann)
-paired_t_shann2 <- lmer(diversity_shannon ~ 1 + (1|Plate_No)  + (1|SampleNumber), data = hmp.div)
+# ASV resid
+paired_t_ResidNasv <- lmer(residRich ~ Treatment   + (1|Plate_No) +(1|SampleNumber), data = hmp.div)
+summary(paired_t_ResidNasv) # 
+paired_t_ResidNasv2 <- lmer(residRich ~ 1 + (1|Plate_No) +(1|SampleNumber), data = hmp.div)
+summary(paired_t_ResidNasv2)
+anova(paired_t_ResidNasv, paired_t_ResidNasv2) # no effect treatment
+
+#Shannon including lib size
+paired_t_shann <- lmer(diversity_shannon ~ Treatment + scale(NbReads) + (1|Plate_No)  + (1|SampleNumber), data =hmp.div)
+summary(paired_t_shann) # no effect Nb reads
+paired_t_shann2 <- lmer(diversity_shannon ~ 1 + scale(NbReads) + (1|Plate_No)  + (1|SampleNumber), data = hmp.div)
 summary(paired_t_shann2)
-anova(paired_t_shann, paired_t_shann2)
+anova(paired_t_shann, paired_t_shann2) # no effect treatment
+# shannon exluding lib size (NS)
+paired_t_shann <- lmer(diversity_shannon ~ Treatment  + (1|Plate_No)  + (1|SampleNumber), data =hmp.div)
+summary(paired_t_shann)
+paired_t_shann2 <- lmer(diversity_shannon ~ 1  + (1|Plate_No)  + (1|SampleNumber), data = hmp.div)
+summary(paired_t_shann2)
+anova(paired_t_shann, paired_t_shann2) # no effect treatment
 
 # PD
-paired_t_pd <- lmer(PD ~ Treatment  + (1|Plate_No) +(1|SampleNumber), data = hmp.div )
-summary(paired_t_pd)
-paired_t_pd2 <- lmer(PD ~ 1  + (1|Plate_No) +(1|SampleNumber), data = hmp.div )
-summary(paired_t_pd2)
-anova(paired_t_pd, paired_t_pd2)
+paired_t_PD <- lmer(PD ~ Treatment + scale(NbReads) + (1|Plate_No) +(1|SampleNumber), data = hmp.div )
+summary(paired_t_PD)  # no effect treatment but library size
+paired_t_PD2 <- lmer(PD ~ 1 + scale(NbReads) + (1|Plate_No) +(1|SampleNumber), data = hmp.div )
+summary(paired_t_PD2)
+anova(paired_t_PD, paired_t_PD2) # no effect treatment but 
+
+# PD resid
+paired_t_residPD <- lmer(residPD ~ Treatment  + (1|Plate_No) +(1|SampleNumber), data = hmp.div )
+summary(paired_t_residPD)
+paired_t_residPD2 <- lmer(residPD ~ 1  + (1|Plate_No) +(1|SampleNumber), data = hmp.div )
+summary(paired_t_residPD2)
+anova(paired_t_residPD, paired_t_residPD2) # no effect
 
 #No effect treatment
 ```
-
-
-
-
-```{r microbiomeline2, eval=FALSE, fig.cap='**.Alpha diversites calculated with phyloseq+micobiome package on un-rarefied counts, fig.width=12, message=FALSE, warning=FALSE, A) ASV richness, B) Shannon index C) Faiths PD. Black line between paired sampes.**', fig.height=6, include=FALSE}
-
-ggarrange(
-hmp.divUR  %>%
-          ggplot(aes(x =Treatment, col= Treatment, y=observed,  group = SampleNumber)) +
-  geom_point(aes(size = 3)) + 
-  geom_line( color="black",  aes(alpha = 1)) +
-  scale_colour_manual( values = pal) +
-      theme(axis.text.x = element_text( size =15, angle= 45, hjust =1),
-          axis.text.y = element_text( size =15),
-          axis.title.y = element_text(face = "bold", size =20),
-        panel.background=element_rect(fill = 'white', colour='black'),
-        strip.background=element_rect(fill = 'white', colour='white'),
-        strip.text = element_text(face = "bold", size=15),
-        panel.grid = element_blank() ,
-        legend.position = "none"
-        ) +
-  ylim(0, 300) +
-  labs(y= "ASV Richness", x =""),
-hmp.divUR  %>%
-          ggplot(aes(x =Treatment, col= Treatment, y=diversity_shannon,  group = SampleNumber)) +
-  geom_point(aes(size = 3)) + 
-  geom_line( color="black", aes(alpha = 1)) +
-  scale_colour_manual( values = pal) +
-      theme(axis.text.x = element_text( size =15, angle= 45, hjust =1),
-          axis.text.y = element_text( size =15),
-          axis.title.y = element_text(face = "bold", size =20),
-        panel.background=element_rect(fill = 'white', colour='black'),
-        strip.background=element_rect(fill = 'white', colour='white'),
-        strip.text = element_text(face = "bold", size=15),
-        panel.grid = element_blank(),
-        legend.position = "none"
-        ) +
-  ylim(0,5) +
-  labs(y= "Shannon index", x =""), 
-hmp.divUR  %>%
-          ggplot(aes(x =Treatment, col= Treatment, y=PD,  group = SampleNumber)) +
-  geom_point(aes(size = 3)) + 
-  geom_line( color="black", aes(alpha = 1)) +
-  scale_colour_manual( values = pal) +
-      theme(axis.text.x = element_text(size =15, angle= 45, hjust =1),
-          axis.text.y = element_text( size =15),
-          axis.title.y = element_text(face = "bold", size =20),
-        panel.background=element_rect(fill = 'white', colour='black'),
-        strip.background=element_rect(fill = 'white', colour='white'),
-        strip.text = element_text(face = "bold", size=15),
-        panel.grid = element_blank(),
-        legend.position = "none"
-        ) +
-  ylim(0,40) +
-  labs(y= "Faith's PD", x =""), 
-labels = c("A", "B", "C"), nrow= 1, ncol =3)
-
-```
-
 
 
 
@@ -334,7 +493,12 @@ asv_table <- asv_table %>% dplyr::rename(Kingdom = kingdom, Phylum = phylum, Cla
 metadata <- metadata %>% relocate(sample) # reorder to get this first
 amp_data <- ampvis2::amp_load(asv_table, metadata = metadata)
 p1 <- ampvis2::amp_rarecurve(amp_data, stepsize = 1000, color_by = 'Treatment')
-p1 + ylab("Number of ASVS") +scale_colour_manual( values = pal) 
+p1 + ylab("Number of ASVS") + scale_colour_manual( values = pal)  +
+  theme(axis.text.y = element_text(size=15),
+        axis.text.x = element_text(size=15, angle = 0),
+        axis.title = element_text(size = 20, face = "bold"),
+        legend.text = element_text(size=15),
+        legend.title = element_text(size=15, face = "bold"))
 
 # It looks ok! 
 ```
