@@ -10,7 +10,7 @@ output:
 
 
 ```{r setup, echo=F,  message=FALSE}
-knitr::opts_chunk$set(echo=TRUE, fig.path='figures/FD/', cache = TRUE)
+knitr::opts_chunk$set(echo=TRUE, fig.path='figures/FD/Upset/', cache = TRUE)
 ggplot2::theme_set(ggplot2::theme_bw())
 ```
 
@@ -36,22 +36,23 @@ suppressPackageStartupMessages(library(ggpubr))
 ```
 
 ```{r read-data, echo= FALSE, message=FALSE}
-asvs <- read_tsv("data/asv_summed_FreezedriedVsFrozen.tsv", col_types = 'ccid')
+asvs <- read_tsv("data/asv_table_FreezedriedVsFrozen.tsv", col_types =cols(
+  asv = col_character(),
+  sample = col_character(),
+  count = col_double(),
+  relab = col_double() ))
+
 metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
   .default = col_character(),
   SampleDate = col_date(format = ""),
   SampleOrder = col_number()
-)) %>% suppressWarnings() 
-taxonomy <- read_tsv("data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
-  asv = col_character(),
-  kingdom = col_character(),
-  phylum = col_character(),
-  class = col_character(),
-  order = col_character(),
-  family = col_character(),
-  genus = col_character(),
-  species = col_character()
-))
+)) %>% suppressWarnings()
+# Rename Sample number
+metadata  <- metadata %>% dplyr::rename(OldSampleNumber = SampleNumber, SampleNumber = NewSampleNumber )
+# make a character of the sample number
+metadata <- metadata %>% mutate(Asample = paste("A", sample, sep= "_"))
+
+asvs %>% group_by(asv) %>% summarise(n =n()) %>% filter(n == 1) %>% summarise(n = sum(n)) # 735
 
 ```
 
@@ -61,7 +62,7 @@ taxonomy <- read_tsv("data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
 In this study, we want to investigate if Freeze Dried samples give the same data as samples stored at -80 freezer prior library preparation. We ask if relative abundance differ between the two sample types.
 
 # Methods
-We took 20 replicate samples from our fecal samples stored in -80 and freeze dried them at the Kalahari Research Centre for 48 h. Freeze Dried samples were then transported and stored at room temperature until 16S library preparation of fecal samples and randomized on three sequencing plates together with their replicates. On all three plates, 4 negative controls were used to remove contaminant reads from samples before further analysis.
+We took 20 replicate samples from our fecal samples stored in -80 and freeze dried them at the Kalahari Research Centre Freeze Dried samples were then transported and stored at room temperature until 16S library preparation of fecal samples and randomized on three sequencing plates together with their replicates. On all three plates, 4 negative controls were used to remove contaminant reads from samples before further analysis.
 
 
 
@@ -91,4 +92,15 @@ upset(Ups,
   )
   )
 )
+
+
+# summary stats
+#951/(951+417+400) # 53 % of all asvs shared
+#Ups %>% filter(Freeze.dried == 1 & Frozen == 1) %>% summarise(n()) #951
+#Ups %>% filter(Freeze.dried == 1 & Frozen != 1) %>% summarise(n()) #400
+#Ups %>% filter(Freeze.dried != 1 & Frozen == 1) %>% summarise(n()) #417
+
+#Ups %>% filter(Freeze.dried == 1 & Frozen == 1) %>% select(asv) %>% inner_join(asvs) %>% summarise(sum(count)) %>% pull() # 3609098
+#Ups %>% filter(Freeze.dried != 1 & Frozen == 1 | Freeze.dried != 1 & Frozen == 1) %>% select(asv) %>% inner_join(asvs) %>% summarise(sum(count)) %>% pull() # 11230
+#asvs %>% summarise(sum(count)) %>% pull() # 3626584 total
 ```
