@@ -9,7 +9,7 @@ output:
 
 
 ```{r setup, echo=F,  message=FALSE}
-knitr::opts_chunk$set(echo=TRUE, fig.path='figures/FD/', cache = TRUE)
+knitr::opts_chunk$set(echo=TRUE, fig.path='figures/FD/Relab/', cache = TRUE)
 ggplot2::theme_set(ggplot2::theme_bw())
 ```
 
@@ -29,18 +29,29 @@ suppressPackageStartupMessages(library(ggpubr))
 suppressPackageStartupMessages(library(lme4))
 suppressPackageStartupMessages(library(DT))
 suppressPackageStartupMessages(library(wesanderson))
+suppressPackageStartupMessages(library(harrypotter))
 ```
 
 ```{r constants}
 ```
 
 ```{r read-data, message=FALSE, include=FALSE, warnings=FALSE}
-asvs <- read_tsv("data/asv_summed_FreezedriedVsFrozen.tsv", col_types = 'ccid')
+asvs <- read_tsv("data/asv_table_FreezedriedVsFrozen.tsv", col_types =cols(
+  asv = col_character(),
+  sample = col_character(),
+  count = col_double(),
+  relab = col_double() ))
+
 metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
   .default = col_character(),
   SampleDate = col_date(format = ""),
   SampleOrder = col_number()
 )) %>% suppressWarnings()
+# Rename Sample number
+metadata  <- metadata %>% dplyr::rename(OldSampleNumber = SampleNumber, SampleNumber = NewSampleNumber )
+# make a character of the sample number
+metadata <- metadata %>% mutate(Asample = paste("A", sample, sep= "_"))
+
 taxonomy <- read_tsv("data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
   asv = col_character(),
   kingdom = col_character(),
@@ -50,7 +61,7 @@ taxonomy <- read_tsv("data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
   family = col_character(),
   genus = col_character(),
   species = col_character()
-)) 
+))
 
 
 ## how many unclassified
@@ -71,12 +82,6 @@ taxonomy  <- taxonomy %>%
     genus = ifelse(is.na(genus), sprintf("%s unclassified", str_remove(family, "unclassified")), genus),
     species = ifelse(is.na(species), sprintf("%s unclassified", str_remove(genus, "unclassified")), species))
 
-
-# Rename Sample number
-metadata  <- metadata %>% dplyr::rename(OldSampleNumber = SampleNumber, SampleNumber = NewSampleNumber )
-
-# filter taxonomy to this study
-taxonomy <-taxonomy %>% inner_join(asvs %>% select(asv) %>% unique())
 ```
 
 # Introduction
@@ -84,8 +89,7 @@ taxonomy <-taxonomy %>% inner_join(asvs %>% select(asv) %>% unique())
 In this study, we want to investigate if Freeze Dried samples give the same data as samples stored at -80 freezer prior library preparation. We ask if relative abundance differ between the two sample types.
 
 # Methods
-We took 20 replicate samples from our fecal samples stored in -80 and freeze dried them at the Kalahari Research Centre for 48 h. Freeze Dried samples were then transported and stored at room temperature until 16S library preparation of fecal samples and randomized on three sequencing plates together with their replicates. On all three plates, 4 negative controls were used to remove contaminant reads from samples before further analysis.
-
+We took 20 replicate samples from our fecal samples stored in -80 and freeze dried them at the Kalahari Research Centre. Freeze Dried samples were then transported and stored at room temperature until 16S library preparation of fecal samples and randomized on three sequencing plates together with their replicates.
 
 
 # Results
@@ -97,7 +101,10 @@ asvs %>% left_join(taxonomy) %>% group_by(sample, phylum) %>% summarise(relab = 
   group_by(phylum) %>% summarise(mean =mean(relab), min= min(relab), max= max(relab)) %>% arrange(desc(max)) %>% datatable() %>%
   formatRound(columns = c("mean", "min", "max"), digits = 3)
 # any ASV dominating any sample?
-asvs %>% left_join(taxonomy) %>% group_by(sample, phylum) %>% summarise(relab = sum(relab)) %>% filter(phylum =="Proteobacteria") %>% arrange(desc(relab)) 
+asvs %>% left_join(taxonomy) %>% left_join(metadata) %>%  group_by(SampleNumber, Treatment, asv, phylum) %>% 
+  summarise(relab = sum(relab), .groups = "drop")  %>% arrange(desc(relab)) # sample 4 high abundance one ASV both Freeze-dried and Frozen
+asvs %>% filter(asv %in% (asvs %>% left_join(taxonomy) %>% left_join(metadata) %>%  group_by(SampleNumber, Treatment, asv, phylum) %>% summarise(relab = sum(relab), .groups = "drop")  %>% 
+  arrange(desc(relab)) %>% slice(1) %>% select(asv)%>% pull())) # prevalent in 5 other samples
 
 # mean min ma lib size
 asvs %>% group_by(sample) %>% summarise(count =sum(count)) %>% summarise(min =min(count), max=max(count), mean=mean(count))
@@ -160,7 +167,7 @@ ggarrange(asvs %>%
 ```
 
 
-```{r Figure 2A, echo=FALSE, fig.cap='**Correlation relative abundance within sample by sample treatment on n ASV level.** Facet by phylum, colour by top 10 phyla.', fig.height=12, fig.width=12, warning=FALSE, message=FALSE}
+```{r Figure 5, echo=FALSE, fig.cap='**Correlation relative abundance within sample by sample treatment on n ASV level.** Facet by phylum, colour by top 10 phyla.', fig.height=10, fig.width=10, warning=FALSE, message=FALSE}
 
 top9phyla <- asvs %>% 
   inner_join(taxonomy, by = 'asv') %>%
@@ -192,9 +199,9 @@ asvs %>%
   scale_color_manual(labels = fooBarLabels, values = wes_palette("Darjeeling1", 9, type = "continuous")) +
   xlab("Log Relative abundance Freeze-dried") +
   ylab("Log Relative abundance Frozen") +
-  stat_cor(aes(label = paste(..r.label.., ..p.label..,sep = "~`,`~")), size  = 2) +
-  theme(axis.text=element_text(size=10),
-        axis.title=element_text(size=10,face="bold"),
+  stat_cor(aes(label = paste(..r.label.., ..p.label..,sep = "~`,`~")), size  = 3) +
+  theme(axis.text=element_text(size=15),
+        axis.title=element_text(size=15,face="bold"),
         strip.text = element_text(size=8),
         legend.position = "none") +
   facet_wrap(~phylum) +
@@ -273,8 +280,11 @@ topfam <- asvs %>%
   select(family, family, meanrelab) %>%
   add_row(family = NA, meanrelab = 0.01)  %>%
   mutate(Order  = as.double( 1:nrow(.)),
-         topph = case_when( Order == 17 ~ "family < 1 % abundance",
+         topph = case_when( Order == 13 ~ "family < 1 % abundance",
                            TRUE ~ family))
+
+
+
 
 fooBarLabels <- topfam %>% select("Order", "topph") %>% deframe()
 
@@ -282,15 +292,19 @@ asvs %>%
   inner_join(taxonomy, by = 'asv') %>%
   left_join(topfam  %>% filter(Order != "17") %>% transmute(family, topph = family), by = 'family') %>%
   replace_na(list('topph' = "family < 1 % abundance")) %>%
+  #left_join(metadata %>% select(sample, Treatment, SampleNumber, SampleOrder)) %>%
+  group_by(topph, sample) %>%
+  replace_na(list('topph' = "family < 1 % abundance")) %>%
+  summarise(relab = sum(relab)) %>%
+  left_join(topfam %>% dplyr::select(Order, topph, family)) %>% 
   left_join(metadata %>% select(sample, Treatment, SampleNumber, SampleOrder)) %>%
-  left_join(topfam %>% dplyr::select(Order, topph)) %>% 
   mutate(family =  fct_reorder(family, Order),
           sample = paste( Treatment, SampleNumber),
          sample =  fct_reorder(sample, desc(SampleOrder))) %>%
   ggplot(aes(x = sample, y = relab, group = as.factor(Order), fill = as.factor(Order))) +
   labs(y = "Relative abundance", fill = "Family", x ="Sample") +
   geom_col(position = 'fill') +
-  scale_fill_manual(labels = fooBarLabels, values = wes_palette("Darjeeling1", 17, type = "continuous")) +
+  scale_fill_manual(labels = fooBarLabels, values = wes_palette("Darjeeling1", 13, type = "continuous")) +
   coord_flip() +
       theme(axis.text.x = element_text( size =15),
           axis.text.y = element_text( size =13),
@@ -299,21 +313,23 @@ asvs %>%
         panel.background=element_rect(fill = 'white', colour='black'),
         strip.background=element_rect(fill = 'white', colour='white'),
         strip.text = element_text(face = "bold", size=15),
-        panel.grid = element_blank())
+        panel.grid = element_blank(),
+        legend.text = element_text(size =13),
+        legend.title = element_text(size = 13, face= "bold"))
 ```
 
 
 ```{r Figure 4, fig.width=10, fig.height = 8, fig.cap = '**Box plot taxaplot per sample families with mean relab > 1 %. **', message=FALSE, echo=FALSE, warning=FALSE}
 asvs %>%
   inner_join(taxonomy, by = 'asv') %>%
-  left_join(topfam  %>% filter(Order != "17") %>% transmute(family, topph = family), by = 'family') %>%
+  left_join(topfam  %>% filter(Order != "13") %>% transmute(family, topph = family), by = 'family') %>%
   replace_na(list('topph' = "family < 1 % abundance")) %>%
   select(sample, phylum, topph, relab) %>%
   group_by(topph, sample) %>%
   summarise(relab = sum(relab)) %>%
   ungroup()  %>%
   pivot_wider(names_from = topph, values_from =  relab, values_fill = 0) %>%
-  pivot_longer(2:18, names_to = 'topph', values_to = 'relab') %>%
+  pivot_longer(2:14, names_to = 'topph', values_to = 'relab') %>%
   left_join(metadata %>% select(sample, Treatment)) %>%
   rename(family= topph ) %>%
   left_join(taxonomy %>% select(family,phylum ) %>% unique()) %>%
@@ -341,18 +357,18 @@ asvs %>%
 ```
 
 
-```{r diffFdFs, fig.width=12, fig.height = 12, fig.cap = '**qqplot family level relab. **', message=FALSE, echo=FALSE, warning=FALSE}
+```{r diffFdFs, eval=FALSE, fig.cap='**qqplot family level relab. **', fig.height=12, fig.width=12, message=FALSE, warning=FALSE, include=FALSE}
 
 asvs %>%
   inner_join(taxonomy, by = 'asv') %>%
-  left_join(topfam  %>% filter(Order != "17") %>% transmute(family, topph = family), by = 'family') %>%
+  left_join(topfam  %>% filter(Order != "13") %>% transmute(family, topph = family), by = 'family') %>%
   replace_na(list('topph' = "family < 1 % abundance")) %>%
   select(sample, phylum, topph, relab) %>%
   group_by(topph, sample) %>%
   summarise(relab = sum(relab)) %>%
   ungroup()  %>%
   pivot_wider(names_from = topph, values_from =  relab, values_fill = 0) %>%
-  pivot_longer(2:18, names_to = 'topph', values_to = 'relab') %>%
+  pivot_longer(2:14, names_to = 'topph', values_to = 'relab') %>%
   left_join(metadata %>% select(sample, Treatment)) %>%
   rename(family= topph ) %>%
   left_join(taxonomy %>% select(family,phylum ) %>% unique()) %>%
@@ -360,7 +376,6 @@ asvs %>%
   left_join(top9phyla %>% dplyr::select(Order, topph) %>% rename(phylum=topph)) %>% 
   mutate( family2 = paste(phylum, family),
           family2 =  fct_reorder(family2, desc(Order))) %>%
-  #filter(relab < 0.5) %>%
     ggplot(aes(sample = relab)) +
     geom_qq_line() +
    geom_qq() + 
@@ -374,14 +389,14 @@ asvs %>%
 ```{r difffam, eval=FALSE, include=FALSE}
 fam <- asvs %>%
   inner_join(taxonomy, by = 'asv') %>%
-  left_join(topfam  %>% filter(Order != "17") %>% transmute(family, topph = family), by = 'family') %>%
+  left_join(topfam  %>% filter(Order != "13") %>% transmute(family, topph = family), by = 'family') %>%
   replace_na(list('topph' = "family < 1 % abundance")) %>%
   select(sample, phylum, topph, relab) %>%
   group_by(topph, sample) %>%
   summarise(relab = sum(relab)) %>%
   ungroup()  %>%
   pivot_wider(names_from = topph, values_from =  relab, values_fill = 0) %>%
-  pivot_longer(2:18, names_to = 'topph', values_to = 'relab') %>%
+  pivot_longer(2:14, names_to = 'topph', values_to = 'relab') %>%
   left_join(metadata %>% select(sample, Treatment)) %>%
   rename(family= topph ) %>%
   left_join(taxonomy %>% select(family,phylum ) %>% unique()) %>%
@@ -402,12 +417,21 @@ famstat <- fam  %>%
   arrange(p.value) %>% 
   mutate(across(is.numeric, ~ round(., 5)),
          p.adjust = p.adjust(p.value, method="bonferroni")) # Bonferroni correction for that we did tests on 17 family groups 
-famstat
+famstat %>% datatable()
 # write table
-#famstat  %>%
-#  select(family, p.value, p.adjust) %>%
+famstat  %>%
+  select(family, p.value, p.adjust) %>%
+  mutate_if(is.numeric,
+                     round,
+                     digits = 3) %>%
+  mutate(p.value = as.character(p.value),
+  p.value = case_when(p.value == 0 ~ "<0.001",
+                      is.na(p.value) ~ "", 
+                      TRUE ~ p.value),
+  p.adjust = as.character(p.adjust),
+  p.adjust = case_when(p.adjust == "0" ~ "<0.001",
+                       TRUE ~ p.adjust))# %>%
 #  write.csv(file("wilcoxtest_family.csv"))
-
 ```
 
 
