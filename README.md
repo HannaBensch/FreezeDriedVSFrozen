@@ -12,7 +12,7 @@ R & Rmd Scripts for 16S Freeze-dried vs -80 Frozen samples analysis and visualiz
 
    B) *Freezefried_vs_min80_hellinger&CLR.Rmd*
    
-   C) *permanova table*
+   C) *FDvsfrozen_permanovatable.R*
    
    
 3) **Relative abundances:**
