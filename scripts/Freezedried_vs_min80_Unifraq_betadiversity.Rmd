@@ -10,7 +10,7 @@ output:
   
   
 ```{r setup, echo=F,  message=FALSE}
-knitr::opts_chunk$set(echo=TRUE, fig.path='figures/FD/UniFraq/', cache = FALSE)
+knitr::opts_chunk$set(echo=TRUE, fig.path='../figures/FD/UniFraq/', cache = FALSE)
 ggplot2::theme_set(ggplot2::theme_bw())
 ```
 
@@ -40,13 +40,17 @@ suppressPackageStartupMessages(library(microbiome))
 ```
 
 ```{r read-data, include=FALSE, meassages=FALSE}
-asvs <- read_tsv("data/asv_summed_FreezedriedVsFrozen.tsv", col_types = 'ccid')
-metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
+asvs <- read_tsv("../data/asv_table_FreezedriedVsFrozen.tsv", col_types =cols(
+  asv = col_character(),
+  sample = col_character(),
+  count = col_double(),
+  relab = col_double() ))
+metadata <- read_csv("../data/FDvsFrozenMetadata.csv", col_types = cols(
   .default = col_character(),
   SampleDate = col_date(format = ""),
   SampleOrder = col_number()
 )) %>% suppressWarnings()
-taxonomy <- read_tsv("data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
+taxonomy <- read_tsv("../data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
   asv = col_character(),
   kingdom = col_character(),
   phylum = col_character(),
@@ -69,7 +73,7 @@ pal <- hp(n = 8, house = "ronweasley2")
 pal <- pal[c(6,4)]
 
 #get the phylotree
-spptree <- read.tree("data/sepp/FDvsFrozenSepptree.tog.tree") 
+spptree <- read.tree("../data/sepp/FDvsFrozenSepptree.tog.tree") 
 
 ```
 
@@ -229,109 +233,3 @@ WuW_fourExcluded
 ```
 
 
-
-
-## PERMANOVAS
-
-test permanova on un-rarefied and all samples (including sample 4), first only to test Plate Number and second to nest within plate number and test SampleNumber vs treatment: 
-
-```{r distances, include=FALSE}
-set.seed(711)
-#distances
-uni_dist <- phyloseq::distance(pseq, "unifrac")
-wuni_dist <- phyloseq::distance(pseq, "wunifrac")
-wuni_dist2 <- phyloseq::distance(subset_samples(pseq, SampleNumber != "4"), "wunifrac")
-uni_dist2 <- phyloseq::distance(subset_samples(pseq, SampleNumber != "4"), "unifrac")
-```
-
-
-
-*On weighted unifrac distance*
-```{r permanova_asv wun, eval=FALSE, include=FALSE}
-# test weighted
-perm <- how(nperm = 9999)
-set.seed(3000)  
-permanova <- adonis2(wuni_dist ~ Plate_No, data = as(sample_data(pseq), "data.frame"), permutations = perm,  by = "margin")
-print(as.data.frame(permanova)) # Plate No NS
-set.seed(3000)  
-betadisp <- betadisper(wuni_dist, as(sample_data(pseq), "data.frame")$Plate_No, type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") 
-anova(betadisp)
-
-setBlocks(perm) <- with(pseq@sam_data, Plate_No)
-permanova <- adonis2(wuni_dist ~ Treatment + SampleNumber,data = as(sample_data(pseq), "data.frame"), permutations = perm,  by = "margin")
-print(as.data.frame(permanova)) # Treatment significant but just small proportion
-```
-
-
-*On weighted unifrac distance excluding sample 4*
-```{r permanova_asv wun2, warning=FALSE, include=FALSE}
-# test weighted
-set.seed(3000)  
-perm <- how(nperm = 9999)
-permanova <- adonis2(wuni_dist2 ~ Plate_No, data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
-print(as.data.frame(permanova))
-set.seed(3000)  
-betadisp <- betadisper(wuni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Plate_No, 
-                                     type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment")
-anova(betadisp)
-
-#no strata argument
-set.seed(3000)  
-permanova <- adonis2(wuni_dist2 ~ Treatment + SampleNumber,data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
-print(as.data.frame(permanova)) # Treatment significant but just small proportion
-set.seed(3000)  
-betadisp <- betadisper(wuni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Treatment, 
-                                     type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") 
-anova(betadisp)
-
-#plate number as strata
-set.seed(3000)  
-setBlocks(perm) <- with(as.tibble(pseq@sam_data) %>% filter( SampleNumber != "4"), Plate_No)
-permanova <- adonis2(wuni_dist2 ~ Treatment + SampleNumber,data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
-print(as.data.frame(permanova)) # Treatment significant but just small proportion
-```
-
-*On un-weighted unifrac distance*
-```{r permanova_asv uwun, include=FALSE}
-# test unweighted
-perm <- how(nperm = 9999)
-permanova <- adonis2(uni_dist ~ Plate_No, data = as(sample_data(pseq), "data.frame"), permutations = perm,  by = "margin")
-print(as.data.frame(permanova)) # Plate No almost significant
-
-setBlocks(perm) <- with(pseq@sam_data, Plate_No)
-permanova <- adonis2(uni_dist ~ Treatment + SampleNumber,data = as(sample_data(pseq), "data.frame"), permutations = perm,  by = "margin")
-print(as.data.frame(permanova)) # Treatment significant but just small proportion
-```
-
-
-*On un-weighted unifrac distance excluding sample 4*
-```{r permanova_asv uwun2, eval=FALSE, warning=FALSE, include=FALSE}
-# test weighted
-perm <- how(nperm = 9999)
-set.seed(3000)  
-permanova <- adonis2(uni_dist2 ~ Plate_No, data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
-print(as.data.frame(permanova)) # Plate significant
-set.seed(3000)  
-betadisp <- betadisper(uni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Plate_No, 
-                                     type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-#"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment")  
-anova(betadisp)
-
-set.seed(3000)
-permanova <- adonis2(uni_dist2 ~ Treatment + SampleNumber,data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
-print(as.data.frame(permanova)) # Treatment significant but just small proportion
-set.seed(3000)
-betadisp <- betadisper(uni_dist2, as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame")$Treatment, 
-                                     type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-#"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") 
-anova(betadisp)
-
-# with plate number as strata argument
-set.seed(3000)
-setBlocks(perm) <- with(as.tibble(pseq@sam_data) %>% filter( SampleNumber != "4"), Plate_No)
-permanova <- adonis2(uni_dist2 ~ Treatment + SampleNumber,data = as(sample_data(subset_samples(pseq, SampleNumber != "4")), "data.frame"), permutations = perm,  by = "margin")
-print(as.data.frame(permanova)) # Treatment significant but just small proportion
-```
