@@ -10,7 +10,7 @@ output:
 
 
 ```{r setup, echo=F,  message=FALSE}
-knitr::opts_chunk$set(echo=TRUE, fig.path='figures/FD/Upset/', cache = TRUE)
+knitr::opts_chunk$set(echo=TRUE, fig.path='../figures/FD/Upset/', cache = TRUE)
 ggplot2::theme_set(ggplot2::theme_bw())
 ```
 
@@ -36,13 +36,13 @@ suppressPackageStartupMessages(library(ggpubr))
 ```
 
 ```{r read-data, echo= FALSE, message=FALSE}
-asvs <- read_tsv("data/asv_table_FreezedriedVsFrozen.tsv", col_types =cols(
+asvs <- read_tsv("../data/asv_table_FreezedriedVsFrozen.tsv", col_types =cols(
   asv = col_character(),
   sample = col_character(),
   count = col_double(),
   relab = col_double() ))
 
-metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
+metadata <- read_csv("../data/FDvsFrozenMetadata.csv", col_types = cols(
   .default = col_character(),
   SampleDate = col_date(format = ""),
   SampleOrder = col_number()
