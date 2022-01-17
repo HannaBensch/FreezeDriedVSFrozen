@@ -10,7 +10,7 @@ output:
 
 
 ```{r setup, echo=F,  message=FALSE}
-knitr::opts_chunk$set(echo=TRUE, fig.path='figures/FD/Alpha/', cache = TRUE)
+knitr::opts_chunk$set(echo=TRUE, fig.path='../figures/FD/Alpha/', cache = TRUE)
 ggplot2::theme_set(ggplot2::theme_bw())
 ```
 
@@ -40,28 +40,18 @@ suppressPackageStartupMessages(library(picante))
 ```
 
 ```{r read-data, message=FALSE, include=FALSE}
-asvs <- read_tsv("data/summed_asvs_filt_test.tsv", col_types =cols(
+asvs <- read_tsv("../data/asv_table_FreezedriedVsFrozen.tsv", col_types =cols(
   asv = col_character(),
   sample = col_character(),
   count = col_double(),
-  relabraw = col_double(),
-  contaminant_negfilt = col_logical(),
-  pa.pos = col_double(),
-  pa.neg = col_double(),
-  contaminant_decDef = col_logical(),
-  contaminant_prev05 = col_logical(),
-  contaminant_prev055 = col_logical(),
-  relab_negfilt = col_double(),
-  relab_decDef = col_double(),
-  relab_Dec05 = col_double(),
-  relab_dec055 = col_double() ))
+  relab = col_double() ))
 
-metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
+metadata <- read_csv("../data/FDvsFrozenMetadata.csv", col_types = cols(
   .default = col_character(),
   SampleDate = col_date(format = ""),
   SampleOrder = col_number()
 )) %>% suppressWarnings()
-taxonomy <- read_tsv("data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
+taxonomy <- read_tsv("../data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
   asv = col_character(),
   kingdom = col_character(),
   phylum = col_character(),
@@ -78,8 +68,6 @@ metadata  <- metadata %>% dplyr::rename(OldSampleNumber = SampleNumber, SampleNu
 # make a character of the sample number
 metadata <- metadata %>% mutate(Asample = paste("A", sample, sep= "_"))
 
-asvs <- asvs %>% inner_join(metadata %>% select(sample,  Asample)) %>%
-  filter(contaminant_prev05 == FALSE) %>% select(asv, sample, count)
 
 metadata <- metadata %>% 
   left_join( 
@@ -91,7 +79,7 @@ pal <- hp(n = 8, house = "ronweasley2")
 pal <- pal[c(6,4)]
 
 #get the phylotree
-spptree <- read.tree("data/sepp/FDvsFrozenSepptree.tog.tree") 
+spptree <- read.tree("../data/sepp/FDvsFrozenSepptree.tog.tree") 
 ```
 
 # Introduction
