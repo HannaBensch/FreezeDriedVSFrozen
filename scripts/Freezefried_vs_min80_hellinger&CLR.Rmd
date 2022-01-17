@@ -11,7 +11,7 @@ output:
 
 
 ```{r setup, echo=F,  message=FALSE}
-knitr::opts_chunk$set(echo=TRUE, fig.path='figures/CLRHell/', cache = TRUE)
+knitr::opts_chunk$set(echo=TRUE, fig.path='../figures/CLRHell/', cache = TRUE)
 ggplot2::theme_set(ggplot2::theme_bw())
 ```
 
@@ -39,13 +39,17 @@ suppressPackageStartupMessages(library(ape))
 ```
 
 ```{r read-data, echo= FALSE, message=FALSE}
-asvs <- read_tsv("data/asv_summed_FreezedriedVsFrozen.tsv", col_types = 'ccid')
-metadata <- read_csv("data/FDvsFrozenMetadata.csv", col_types = cols(
+asvs <- read_tsv("../data/asv_table_FreezedriedVsFrozen.tsv", col_types =cols(
+  asv = col_character(),
+  sample = col_character(),
+  count = col_double(),
+  relab = col_double() ))
+metadata <- read_csv("../data/FDvsFrozenMetadata.csv", col_types = cols(
   .default = col_character(),
   SampleDate = col_date(format = ""),
   SampleOrder = col_number()
 )) %>% suppressWarnings()
-taxonomy <- read_tsv("data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
+taxonomy <- read_tsv("../data/taxonomy_FreezedriedVsFrozen.tsv", col_types =  cols(
   asv = col_character(),
   kingdom = col_character(),
   phylum = col_character(),
@@ -244,41 +248,6 @@ PCACLR1<-ggplot(df1, aes(x=PC1,y=PC2, group = SampleNumber)) +
 PCACLR1    
 ```
 
-
-
-#### Permanovas Aitchison/Euclidian distance of clr transformation
-```{r clrperma, message=FALSE, warning=FALSE, include=FALSE}
-
-clrdist<-dist(clr) #Aitchison/Euclidian distance 
-metadf <- metadata %>% tibble::column_to_rownames('Asample')
-
-set.seed(1000)
-perm <- how(nperm = 9999)
-permanova <- adonis2(clrdist ~ Plate_No, data = metadf, permutations = perm,  by = "margin")
-print(as.data.frame(permanova))
-
-
-set.seed(1000)
-betadisp <- betadisper(clrdist, metadf$Plate_No, type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-#"boxplot"(betadisp, ylab = "Distance to centroid", xlab = "Treatment") # Doesn't look OK... 
-anova(betadisp)
-
-set.seed(1000)
-permanova <- adonis2(clrdist ~ Treatment + SampleNumber, data = metadf, permutations = perm,  by = "margin")
-print(as.data.frame(permanova))
-
-
-set.seed(1000)
-# with plate no as strata arg
-setBlocks(perm) <- with(metadf, Plate_No)
-permanova <- adonis2(clrdist ~ Treatment + SampleNumber, data = metadf, permutations = perm,  by = "margin")
-print(as.data.frame(permanova))
-
-set.seed(1000)
-betadisp <- betadisper(clrdist, metadf$Treatment, type = "centroid", bias.adjust = FALSE, sqrt.dist = FALSE, add = FALSE)
-anova(betadisp)
-
-```
 
 
  
