@@ -5,7 +5,7 @@ library(tidyverse)
 library(phyloseq)
 library(vegan)
 
-# load phyloseq object used for calculating alpha diversity and unifrac distances
+# load phyloseq object created in Freezedried_vs_min80_Unifraq_betadiversity.Rmd used for calculating alpha diversity and unifrac distances
 pseq <- readRDS( "../data/pseq.rds")
 
 wuni_dist2 <- phyloseq::distance(subset_samples(pseq, SampleNumber != "4"), "wunifrac")
@@ -183,4 +183,4 @@ combinedt %>% mutate(Factor = case_when(Factor == "NbReads" ~ "Library size",
                      p = case_when(p == "0" ~ "<0.001",
                                             TRUE ~ p)) %>%
   arrange(Permanova, Factor) #%>% write_csv("data/permanova_table.csv")
-                        
+

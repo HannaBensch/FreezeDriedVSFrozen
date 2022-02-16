@@ -103,6 +103,9 @@ pseq <- merge_phyloseq(pseq, spptree) # merge with tree
 print(pseq)
 pseq@phy_tree # tree is rooted
 
+# save pseq for permanova table script
+saveRDS(pseq, "../data/pseq.rds")
+
 # delete objects not needed
 rm(taxonomyp, metadatap,asvsp, samples, TAX, OTU)
 
